@@ -127,6 +127,7 @@
 <nav id="nav">
   <button data-tab="dash" class="active">Painel</button>
   <button data-tab="financeiro">Financeiro</button>
+  <button data-tab="analitico">Analítico</button>
   <button data-tab="veiculos">Veículos</button>
   <button data-tab="abast">Abastecimentos</button>
   <button data-tab="manut">Manutenções</button>
@@ -441,7 +442,7 @@ document.getElementById('nav').addEventListener('click',e=>{
 });
 function render(){
   const app=document.getElementById('app');
-  const map={dash:viewDash,financeiro:viewFinance,veiculos:viewVeiculos,abast:viewAbast,manut:viewManut,planos:viewPlanos};
+  const map={dash:viewDash,financeiro:viewFinance,analitico:viewAnalise,veiculos:viewVeiculos,abast:viewAbast,manut:viewManut,planos:viewPlanos};
   app.innerHTML=(map[TAB]||viewDash)();
   document.getElementById('foot').innerHTML = cloud.on
     ? `☁ Sincronizado na nuvem — código <b>${cloud.codigo}</b>. Abra com o mesmo código em outros aparelhos (PC/celular) para ver os mesmos dados em tempo real.`
@@ -600,6 +601,46 @@ function viewFinance(){
       <div class="card"><h3>Gasto por mês</h3>${chartMeses}</div>
       <div class="card"><h3>Manutenção por categoria</h3>${chartCats}${catTable}</div>
     </div>${combSection}${parcSection}${perVeic}`;
+}
+
+/* ============ ANALÍTICO ============ */
+function viewAnalise(){
+  if(DB.veiculos.length===0)return `<div class="empty">Cadastre veículos e lançamentos para ver a análise.</div>`;
+  const fv=window._fAnV||'', fa=window._fAnA||'';
+  const okA=a=>(!fv||a.veiculo===fv)&&(!fa||a.data.slice(0,4)===fa);
+  const okM=m=>(!fv||m.veiculo===fv)&&(!fa||m.data.slice(0,4)===fa);
+  const abast=DB.abastecimentos.filter(okA), manut=DB.manutencoes.filter(okM);
+  const selV=`<select onchange="window._fAnV=this.value;render()"><option value="">Todos os veículos</option>${DB.veiculos.map(v=>`<option value="${v.id}" ${fv===v.id?'selected':''}>${v.marca} ${v.modelo} (${v.placa})</option>`).join('')}</select>`;
+  const selA=`<select onchange="window._fAnA=this.value;render()"><option value="">Todos os anos</option>${anosDisponiveis().map(y=>`<option value="${y}" ${fa===y?'selected':''}>${y}</option>`).join('')}</select>`;
+  // KPIs de abastecimento
+  const nAb=abast.length;
+  const litros=abast.reduce((s,a)=>s+(+a.litros||0),0);
+  const gasto=abast.reduce((s,a)=>s+(+a.valor||0),0);
+  const precoMedioL=litros>0?gasto/litros:NaN;
+  const valorMedioAb=nAb>0?gasto/nAb:NaN;
+  const kpi=`<div class="kpi">
+    <div class="card"><div class="muted">Abastecimentos</div><div class="big">${nAb}</div></div>
+    <div class="card"><div class="muted">Preço médio/litro</div><div class="big" style="font-size:22px">${money(precoMedioL)}</div></div>
+    <div class="card"><div class="muted">Valor médio por abastecimento</div><div class="big" style="font-size:22px">${money(valorMedioAb)}</div></div>
+    <div class="card"><div class="muted">Litros totais</div><div class="big" style="font-size:22px">${num(litros)} L</div></div>
+  </div>`;
+  // por local de abastecimento (posto)
+  const postos={};
+  abast.forEach(a=>{const k=(a.posto||'').trim()||'Não informado';(postos[k]=postos[k]||{n:0,l:0,v:0});postos[k].n++;postos[k].l+=+a.litros||0;postos[k].v+=+a.valor||0;});
+  const pKeys=Object.keys(postos).sort((a,b)=>postos[b].v-postos[a].v);
+  const pRows=pKeys.map(k=>({label:k,segs:[{val:postos[k].v,color:'#38bdf8'}]}));
+  const chartP=pKeys.length?barChart(pRows,money):'<div class="muted">Sem abastecimentos no período.</div>';
+  const pTable=pKeys.length?`<table style="margin-top:10px"><thead><tr><th>Posto</th><th>Abast.</th><th>Litros</th><th>Gasto</th><th>Preço méd/L</th><th>Valor méd/ab.</th></tr></thead><tbody>${pKeys.map(k=>`<tr><td>${k}</td><td>${postos[k].n}</td><td>${num(postos[k].l)} L</td><td>${money(postos[k].v)}</td><td>${money(postos[k].l>0?postos[k].v/postos[k].l:NaN)}</td><td>${money(postos[k].n>0?postos[k].v/postos[k].n:NaN)}</td></tr>`).join('')}</tbody></table>`:'';
+  // por local de manutenção (oficina)
+  const ofs={};
+  manut.forEach(m=>{const k=(m.oficina||'').trim()||'Não informado';(ofs[k]=ofs[k]||{n:0,v:0});ofs[k].n++;ofs[k].v+=+m.custo||0;});
+  const oKeys=Object.keys(ofs).sort((a,b)=>ofs[b].v-ofs[a].v);
+  const oRows=oKeys.map(k=>({label:k,segs:[{val:ofs[k].v,color:'#f59e0b'}]}));
+  const chartO=oKeys.length?barChart(oRows,money):'<div class="muted">Sem manutenções no período.</div>';
+  const oTable=oKeys.length?`<table style="margin-top:10px"><thead><tr><th>Oficina / local</th><th>Serviços</th><th>Custo total</th><th>Custo médio</th></tr></thead><tbody>${oKeys.map(k=>`<tr><td>${k}</td><td>${ofs[k].n}</td><td>${money(ofs[k].v)}</td><td>${money(ofs[k].n>0?ofs[k].v/ofs[k].n:NaN)}</td></tr>`).join('')}</tbody></table>`:'';
+  return `<div class="toolbar">${selV}${selA}</div>${kpi}
+    <div class="card"><h3>⛽ Por local de abastecimento (posto)</h3>${chartP}${pTable}</div>
+    <div class="card" style="margin-top:16px"><h3>🔧 Por local de manutenção (oficina)</h3>${chartO}${oTable}</div>`;
 }
 
 /* ============ VEÍCULOS ============ */
