@@ -145,7 +145,11 @@ const CATS=['Motor','Freio','Suspensão','Direção','Cabine','Elétrica','Câmb
 const CAT_COLOR={'Motor':'#ef4444','Freio':'#f59e0b','Suspensão':'#a855f7','Direção':'#8b5cf6','Cabine':'#14b8a6',
   'Elétrica':'#eab308','Câmbio/Transmissão':'#3b82f6','Arrefecimento':'#06b6d4','Pneus e Rodas':'#64748b',
   'Filtros e Óleo':'#22c55e','Ar-condicionado':'#0ea5e9','Funilaria/Lataria':'#ec4899','Documentação':'#94a3b8','Outros':'#6b7280'};
-const COMBUSTIVEIS=['Gasolina comum','Gasolina aditivada','Álcool comum','Álcool aditivado','Diesel S500','Diesel S10'];
+const COMB_LEVE=['Gasolina comum','Gasolina aditivada','Álcool comum','Álcool aditivado'];
+const COMB_PESADO=['Diesel S500','Diesel S10'];
+const COMBUSTIVEIS=[...COMB_LEVE,...COMB_PESADO];
+const COMB_COLOR={'Gasolina comum':'#ef4444','Gasolina aditivada':'#f97316','Álcool comum':'#22c55e','Álcool aditivado':'#15803d','Diesel S500':'#3b82f6','Diesel S10':'#0ea5e9','Não informado':'#64748b'};
+function combsFor(tipo){return tipo==='pesado'?COMB_PESADO:COMB_LEVE;}
 
 /* ================= DADOS ================= */
 const KEY='controle_veiculos_v2';
@@ -527,6 +531,14 @@ function viewFinance(){
   const catRows=Object.keys(cats).sort((a,b)=>cats[b]-cats[a]).map(c=>({label:c,segs:[{val:cats[c],color:CAT_COLOR[c]||'#64748b'}]}));
   const chartCats=catRows.length?barChart(catRows,money):`<div class="muted">Nenhuma manutenção no período.</div>`;
   const catTable=catRows.length?`<table style="margin-top:10px"><thead><tr><th>Categoria</th><th>Custo</th><th>%</th></tr></thead><tbody>${Object.keys(cats).sort((a,b)=>cats[b]-cats[a]).map(c=>`<tr><td><span class="cat" style="background:${CAT_COLOR[c]||'#334155'};color:#0b1220;font-weight:700">${c}</span></td><td>${money(cats[c])}</td><td>${totManut>0?num(cats[c]/totManut*100,1):0}%</td></tr>`).join('')}</tbody></table>`:'';
+  // combustível: litros e gasto por tipo
+  const comb={};
+  abast.forEach(a=>{const k=a.combustivel||'Não informado';(comb[k]=comb[k]||{l:0,v:0});comb[k].l+=+a.litros||0;comb[k].v+=+a.valor||0;});
+  const combKeys=Object.keys(comb).sort((a,b)=>comb[b].v-comb[a].v);
+  const combRows=combKeys.map(k=>({label:k,segs:[{val:comb[k].v,color:COMB_COLOR[k]||'#64748b'}]}));
+  const chartComb=combKeys.length?barChart(combRows,money):`<div class="muted">Sem abastecimentos no período.</div>`;
+  const combTable=combKeys.length?`<table style="margin-top:10px"><thead><tr><th>Combustível</th><th>Litros</th><th>Gasto</th><th>Preço méd/L</th><th>%</th></tr></thead><tbody>${combKeys.map(k=>`<tr><td><span class="cat" style="background:${COMB_COLOR[k]||'#334155'};color:#0b1220;font-weight:700">${k}</span></td><td>${num(comb[k].l)} L</td><td>${money(comb[k].v)}</td><td>${money(comb[k].l>0?comb[k].v/comb[k].l:NaN)}</td><td>${totComb>0?num(comb[k].v/totComb*100,1):0}%</td></tr>`).join('')}</tbody></table>`:'';
+  const combSection=`<div class="card" style="margin-top:16px"><h3>⛽ Análise por combustível</h3>${chartComb}${combTable}</div>`;
   // por veículo
   let perVeic='';
   if(!fv){
@@ -587,7 +599,7 @@ function viewFinance(){
     <div class="grid" style="grid-template-columns:1fr 1fr">
       <div class="card"><h3>Gasto por mês</h3>${chartMeses}</div>
       <div class="card"><h3>Manutenção por categoria</h3>${chartCats}${catTable}</div>
-    </div>${parcSection}${perVeic}`;
+    </div>${combSection}${parcSection}${perVeic}`;
 }
 
 /* ============ VEÍCULOS ============ */
@@ -676,6 +688,8 @@ function selVeic(varName,placeholder){
   return `<select onchange="window['${varName}']=this.value;render()"><option value="">${placeholder}</option>${opts}</select>`;
 }
 function catOptions(sel){return CATS.map(c=>`<option value="${c}" ${sel===c?'selected':''}>${c}</option>`).join('');}
+function combOptionsHtml(tipo,sel){return '<option value="">Selecione...</option>'+combsFor(tipo).map(c=>`<option value="${c}" ${sel===c?'selected':''}>${c}</option>`).join('');}
+function updateCombOptions(){const vid=document.getElementById('f_v').value;const tipo=(vById(vid)||{}).tipo||'leve';const cur=document.getElementById('f_comb').value;document.getElementById('f_comb').innerHTML=combOptionsHtml(tipo,cur);}
 
 /* ============ MODAL ============ */
 const overlay=document.getElementById('overlay'),modalEl=document.getElementById('modal');
@@ -707,8 +721,8 @@ function saveVeiculo(id){
 function editAbast(id){
   const a=id?DB.abastecimentos.find(x=>x.id===id):{veiculo:(DB.veiculos[0]||{}).id||'',data:today(),km:'',litros:'',valor:'',cheio:true,posto:'',combustivel:''};
   openModal(`<h2>${id?'Editar':'Novo'} abastecimento</h2>
-    <div class="field"><label>Veículo</label><select id="f_v">${DB.veiculos.map(v=>`<option value="${v.id}" ${a.veiculo===v.id?'selected':''}>${v.marca} ${v.modelo} (${v.placa})</option>`).join('')}</select></div>
-    <div class="field"><label>Combustível abastecido</label><select id="f_comb"><option value="">Selecione...</option>${COMBUSTIVEIS.map(c=>`<option value="${c}" ${a.combustivel===c?'selected':''}>${c}</option>`).join('')}</select></div>
+    <div class="field"><label>Veículo</label><select id="f_v" onchange="updateCombOptions()">${DB.veiculos.map(v=>`<option value="${v.id}" ${a.veiculo===v.id?'selected':''}>${v.marca} ${v.modelo} (${v.placa})</option>`).join('')}</select></div>
+    <div class="field"><label>Combustível abastecido</label><select id="f_comb">${combOptionsHtml((vById(a.veiculo)||{}).tipo||'leve',a.combustivel)}</select></div>
     <div class="row2"><div class="field"><label>Data</label><input id="f_data" type="date" value="${a.data||today()}"></div><div class="field"><label>Hodômetro (km)</label><input id="f_km" type="number" value="${a.km!=null?a.km:''}"></div></div>
     <div class="row2"><div class="field"><label>Litros</label><input id="f_litros" type="number" step="0.01" value="${a.litros!=null?a.litros:''}"></div><div class="field"><label>Valor total (R$)</label><input id="f_valor" type="number" step="0.01" value="${a.valor!=null?a.valor:''}"></div></div>
     <div class="row2"><div class="field"><label>Tanque cheio?</label><select id="f_cheio"><option value="1" ${a.cheio?'selected':''}>Sim</option><option value="0" ${!a.cheio?'selected':''}>Não (parcial)</option></select></div><div class="field"><label>Posto</label><input id="f_posto" value="${a.posto||''}"></div></div>
