@@ -145,6 +145,7 @@ const CATS=['Motor','Freio','Suspensão','Direção','Cabine','Elétrica','Câmb
 const CAT_COLOR={'Motor':'#ef4444','Freio':'#f59e0b','Suspensão':'#a855f7','Direção':'#8b5cf6','Cabine':'#14b8a6',
   'Elétrica':'#eab308','Câmbio/Transmissão':'#3b82f6','Arrefecimento':'#06b6d4','Pneus e Rodas':'#64748b',
   'Filtros e Óleo':'#22c55e','Ar-condicionado':'#0ea5e9','Funilaria/Lataria':'#ec4899','Documentação':'#94a3b8','Outros':'#6b7280'};
+const COMBUSTIVEIS=['Gasolina comum','Gasolina aditivada','Álcool comum','Álcool aditivado','Diesel S500','Diesel S10'];
 
 /* ================= DADOS ================= */
 const KEY='controle_veiculos_v2';
@@ -204,12 +205,12 @@ function seed(){
       {id:v2,tipo:'pesado',placa:'XYZ9E88',marca:'Mercedes-Benz',modelo:'Actros 2546',ano:2020,combustivel:'Diesel S10',km:412000,manual:'https://www.mercedes-benz-trucks.com/pt_BR/home.html',obs:'Carreta — rodoviário'}
     ],
     abastecimentos:[
-      {id:uid(),veiculo:v1,data:'2026-06-05',km:37600,litros:41.0,valor:266.5,cheio:true,posto:'Ipiranga'},
-      {id:uid(),veiculo:v1,data:'2026-06-18',km:38010,litros:34.2,valor:225.7,cheio:true,posto:'Shell'},
-      {id:uid(),veiculo:v1,data:'2026-07-02',km:38250,litros:20.1,valor:132.6,cheio:true,posto:'Ipiranga'},
-      {id:uid(),veiculo:v2,data:'2026-06-01',km:408500,litros:390.0,valor:2418.0,cheio:true,posto:'Posto Graal'},
-      {id:uid(),veiculo:v2,data:'2026-06-20',km:411100,litros:420.0,valor:2604.0,cheio:true,posto:'Rede Truck'},
-      {id:uid(),veiculo:v2,data:'2026-07-05',km:412000,litros:145.0,valor:899.0,cheio:true,posto:'Posto Graal'}
+      {id:uid(),veiculo:v1,data:'2026-06-05',km:37600,litros:41.0,valor:266.5,cheio:true,posto:'Ipiranga',combustivel:'Gasolina aditivada'},
+      {id:uid(),veiculo:v1,data:'2026-06-18',km:38010,litros:34.2,valor:225.7,cheio:true,posto:'Shell',combustivel:'Gasolina comum'},
+      {id:uid(),veiculo:v1,data:'2026-07-02',km:38250,litros:20.1,valor:132.6,cheio:true,posto:'Ipiranga',combustivel:'Álcool comum'},
+      {id:uid(),veiculo:v2,data:'2026-06-01',km:408500,litros:390.0,valor:2418.0,cheio:true,posto:'Posto Graal',combustivel:'Diesel S10'},
+      {id:uid(),veiculo:v2,data:'2026-06-20',km:411100,litros:420.0,valor:2604.0,cheio:true,posto:'Rede Truck',combustivel:'Diesel S10'},
+      {id:uid(),veiculo:v2,data:'2026-07-05',km:412000,litros:145.0,valor:899.0,cheio:true,posto:'Posto Graal',combustivel:'Diesel S500'}
     ],
     manutencoes:[
       {id:uid(),veiculo:v1,data:'2026-01-15',km:33000,categoria:'Filtros e Óleo',tipo:'Troca de óleo e filtro',custo:320,oficina:'Auto Center Silva',obs:'',parcelado:false,numParcelas:1,dataPrimeiraParcela:''},
@@ -610,12 +611,14 @@ function viewAbast(){
   let list=DB.abastecimentos.slice().sort((a,b)=>b.data.localeCompare(a.data));
   if(filt)list=list.filter(a=>a.veiculo===filt);
   const rows=list.map(a=>{const precoL=a.litros>0?a.valor/a.litros:NaN;return `<tr>
-    <td>${fmtDate(a.data)}</td><td>${vNome(a.veiculo)}</td><td>${num(a.km,0)} km</td><td>${num(a.litros)} L</td>
+    <td>${fmtDate(a.data)}</td><td>${vNome(a.veiculo)}</td>
+    <td>${a.combustivel?`<span class="cat">${a.combustivel}</span>`:'<span class="muted">—</span>'}</td>
+    <td>${num(a.km,0)} km</td><td>${num(a.litros)} L</td>
     <td>${money(a.valor)}</td><td>${money(precoL)}/L</td><td>${a.cheio?'✓':'parcial'}</td>
     <td style="text-align:right"><button class="btn sm gray" onclick="editAbast('${a.id}')">Editar</button> <button class="btn sm danger" onclick="delItem('abastecimentos','${a.id}')">×</button></td></tr>`;}).join('');
   return `<div class="toolbar"><button class="btn" onclick="editAbast()">+ Novo abastecimento</button>${selVeic('_fAbast','Todos os veículos')}</div>
-    <div class="card"><table><thead><tr><th>Data</th><th>Veículo</th><th>Hodômetro</th><th>Litros</th><th>Valor</th><th>Preço/L</th><th>Cheio?</th><th></th></tr></thead>
-    <tbody>${rows||`<tr><td colspan="8" class="empty">Nenhum abastecimento.</td></tr>`}</tbody></table></div>
+    <div class="card"><table><thead><tr><th>Data</th><th>Veículo</th><th>Combustível</th><th>Hodômetro</th><th>Litros</th><th>Valor</th><th>Preço/L</th><th>Cheio?</th><th></th></tr></thead>
+    <tbody>${rows||`<tr><td colspan="9" class="empty">Nenhum abastecimento.</td></tr>`}</tbody></table></div>
     <div class="muted" style="margin-top:10px;font-size:12px">💡 A média usa o método "tanque cheio a tanque cheio". Marque <b>Cheio?</b> ao encher o tanque.</div>`;
 }
 
@@ -702,16 +705,17 @@ function saveVeiculo(id){
 }
 
 function editAbast(id){
-  const a=id?DB.abastecimentos.find(x=>x.id===id):{veiculo:(DB.veiculos[0]||{}).id||'',data:today(),km:'',litros:'',valor:'',cheio:true,posto:''};
+  const a=id?DB.abastecimentos.find(x=>x.id===id):{veiculo:(DB.veiculos[0]||{}).id||'',data:today(),km:'',litros:'',valor:'',cheio:true,posto:'',combustivel:''};
   openModal(`<h2>${id?'Editar':'Novo'} abastecimento</h2>
     <div class="field"><label>Veículo</label><select id="f_v">${DB.veiculos.map(v=>`<option value="${v.id}" ${a.veiculo===v.id?'selected':''}>${v.marca} ${v.modelo} (${v.placa})</option>`).join('')}</select></div>
+    <div class="field"><label>Combustível abastecido</label><select id="f_comb"><option value="">Selecione...</option>${COMBUSTIVEIS.map(c=>`<option value="${c}" ${a.combustivel===c?'selected':''}>${c}</option>`).join('')}</select></div>
     <div class="row2"><div class="field"><label>Data</label><input id="f_data" type="date" value="${a.data||today()}"></div><div class="field"><label>Hodômetro (km)</label><input id="f_km" type="number" value="${a.km!=null?a.km:''}"></div></div>
     <div class="row2"><div class="field"><label>Litros</label><input id="f_litros" type="number" step="0.01" value="${a.litros!=null?a.litros:''}"></div><div class="field"><label>Valor total (R$)</label><input id="f_valor" type="number" step="0.01" value="${a.valor!=null?a.valor:''}"></div></div>
     <div class="row2"><div class="field"><label>Tanque cheio?</label><select id="f_cheio"><option value="1" ${a.cheio?'selected':''}>Sim</option><option value="0" ${!a.cheio?'selected':''}>Não (parcial)</option></select></div><div class="field"><label>Posto</label><input id="f_posto" value="${a.posto||''}"></div></div>
     <div class="modal-actions"><button class="btn gray" onclick="closeModal()">Cancelar</button><button class="btn" onclick="saveAbast('${id||''}')">Salvar</button></div>`);
 }
 function saveAbast(id){
-  const o={veiculo:g('f_v'),data:g('f_data'),km:gn('f_km'),litros:gn('f_litros'),valor:gn('f_valor'),cheio:g('f_cheio')==='1',posto:g('f_posto')};
+  const o={veiculo:g('f_v'),data:g('f_data'),km:gn('f_km'),litros:gn('f_litros'),valor:gn('f_valor'),cheio:g('f_cheio')==='1',posto:g('f_posto'),combustivel:g('f_comb')};
   if(!o.veiculo||!o.km){alert('Selecione veículo e informe o hodômetro.');return;}
   if(id){Object.assign(DB.abastecimentos.find(x=>x.id===id),o);}else{o.id=uid();DB.abastecimentos.push(o);}
   const v=vById(o.veiculo);if(v&&o.km>v.km)v.km=o.km;
