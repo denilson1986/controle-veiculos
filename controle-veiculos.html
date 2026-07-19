@@ -90,11 +90,17 @@
   </div>
   <div class="spacer"></div>
   <span class="pill" id="cloudStatus" title="Sincronização na nuvem">☁ nuvem desligada</span>
+  <span class="pill" id="mirrorStatus" title="Espelho no OneDrive (para o lembrete)" style="display:none">💾 espelho OneDrive</span>
   <button class="btn green sm" onclick="cloudConfig()">☁ Nuvem</button>
+  <button class="btn ghost sm" onclick="connectMirror()" title="Manter cópia no OneDrive para o lembrete">💾 Espelho</button>
   <button class="btn ghost sm" onclick="exportJSON()">⬇ Backup</button>
   <button class="btn ghost sm" onclick="document.getElementById('importFile').click()">⬆ Restaurar</button>
   <input type="file" id="importFile" accept="application/json" style="display:none" onchange="importJSON(event)">
 </header>
+
+<div id="mirrorBar" style="display:none;background:#1e3a5f;color:#dbeafe;padding:8px 20px;font-size:13px">
+  O espelho no OneDrive (para o lembrete) precisa de permissão para gravar. <button class="btn sm green" onclick="reconnectMirrorPerm()" style="margin-left:8px">Reativar espelho</button>
+</div>
 
 <nav id="nav">
   <button data-tab="dash" class="active">Painel</button>
@@ -196,12 +202,57 @@ function seed(){
 /* ============ ARMAZENAMENTO / NUVEM (Firebase Firestore) ============ */
 const CLOUD_KEY='cv_cloud';
 let cloud={cfg:null,codigo:'',on:false,db:null,unsub:null};
-let saveTimer=null, cst=null;
+let saveTimer=null, cst=null, mst=null;
 const overlayOpen=()=>document.getElementById('overlay').classList.contains('open');
+
+/* ---- Espelho no OneDrive (para o lembrete) via File System Access ---- */
+let mirror={handle:null,on:false,pending:null};
+const FS_OK=!!(window.showSaveFilePicker&&window.showOpenFilePicker);
+function idbOpen(){return new Promise(res=>{const r=indexedDB.open('cv_db',1);r.onupgradeneeded=()=>r.result.createObjectStore('kv');r.onsuccess=()=>res(r.result);r.onerror=()=>res(null);});}
+async function idbSet(k,v){const db=await idbOpen();if(!db)return;db.transaction('kv','readwrite').objectStore('kv').put(v,k);}
+async function idbGet(k){const db=await idbOpen();if(!db)return null;return new Promise(res=>{const g=db.transaction('kv').objectStore('kv').get(k);g.onsuccess=()=>res(g.result);g.onerror=()=>res(null);});}
+async function writeMirror(){
+  if(!mirror.handle)return;
+  try{const w=await mirror.handle.createWritable();await w.write(JSON.stringify(DB,null,2));await w.close();mirrorMsg('espelhado');}
+  catch(e){mirrorMsg('erro espelho',true);}
+}
+async function connectMirror(){
+  if(location.protocol==='file:'){alert('Para o espelho, abra o app pelo endereço https (o link do GitHub), não por duplo clique.');return;}
+  if(!FS_OK){alert('Use o Google Chrome ou Microsoft Edge no computador para ativar o espelho no OneDrive.');return;}
+  const abrir=confirm('OK = ESCOLHER o dados-veiculos.json que já existe na pasta do OneDrive.\nCancelar = CRIAR um novo dados-veiculos.json.');
+  try{
+    let h;
+    if(abrir){[h]=await window.showOpenFilePicker({types:[{description:'JSON',accept:{'application/json':['.json']}}]});}
+    else{h=await window.showSaveFilePicker({suggestedName:'dados-veiculos.json',types:[{description:'JSON',accept:{'application/json':['.json']}}]});}
+    mirror.handle=h;mirror.on=true;await idbSet('mirrorHandle',h);
+    await writeMirror();setMirrorUI();
+    alert('Espelho ligado! Este aparelho vai manter o dados-veiculos.json do OneDrive atualizado para o lembrete.');
+  }catch(e){if(e.name!=='AbortError')alert('Não foi possível ativar o espelho: '+e.message);}
+}
+async function reconnectMirror(){
+  if(!FS_OK)return;
+  const h=await idbGet('mirrorHandle');if(!h)return;
+  try{const p=await h.queryPermission({mode:'readwrite'});
+    if(p==='granted'){mirror.handle=h;mirror.on=true;setMirrorUI();writeMirror();}
+    else{mirror.pending=h;const b=document.getElementById('mirrorBar');if(b)b.style.display='block';}
+  }catch(e){}
+}
+async function reconnectMirrorPerm(){
+  if(!mirror.pending)return;
+  try{const p=await mirror.pending.requestPermission({mode:'readwrite'});
+    if(p==='granted'){mirror.handle=mirror.pending;mirror.on=true;document.getElementById('mirrorBar').style.display='none';setMirrorUI();writeMirror();}
+  }catch(e){}
+}
+function setMirrorUI(){
+  const el=document.getElementById('mirrorStatus');if(!el)return;
+  el.style.display=mirror.on?'inline-block':'none';el.style.background='#065f46';el.style.borderColor='#10b981';el.textContent='💾 espelho OneDrive';
+}
+function mirrorMsg(msg,err){const el=document.getElementById('mirrorStatus');if(!el||!mirror.on)return;clearTimeout(mst);el.style.display='inline-block';el.textContent=(err?'⚠ ':'✔ ')+msg;el.style.background=err?'#7f1d1d':'#065f46';mst=setTimeout(setMirrorUI,1500);}
 
 function save(){
   try{localStorage.setItem(KEY,JSON.stringify(DB));}catch(e){}
   if(cloud.on){clearTimeout(saveTimer);saveTimer=setTimeout(pushCloud,400);}
+  if(mirror.on&&mirror.handle){writeMirror();}
 }
 function setCloudUI(){
   const el=document.getElementById('cloudStatus');if(!el)return;
@@ -237,7 +288,7 @@ function subscribe(){
     if(!snap.exists){pushCloud();cloudStatus('nuvem criada');return;}
     if(snap.metadata.hasPendingWrites)return; // eco do nosso próprio salvamento
     const d=snap.data();
-    if(d&&d.json){try{DB=JSON.parse(d.json);normalize();if(!overlayOpen())render();cloudStatus('sincronizado');}catch(e){}}
+    if(d&&d.json){try{DB=JSON.parse(d.json);normalize();try{localStorage.setItem(KEY,JSON.stringify(DB));}catch(e){}if(mirror.on&&mirror.handle)writeMirror();if(!overlayOpen())render();cloudStatus('sincronizado');}catch(e){}}
   },err=>cloudStatus('offline',true));
 }
 function pushCloud(){
@@ -718,6 +769,7 @@ function boot(){
   normalize();
   setCloudUI();render();
   initCloud();
+  reconnectMirror();
 }
 boot();
 </script>
