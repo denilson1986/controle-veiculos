@@ -1,0 +1,725 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Controle de Veículos — Leve e Pesado</title>
+<style>
+  :root{
+    --bg:#0f172a; --panel:#1e293b; --panel2:#273449; --line:#334155;
+    --txt:#e2e8f0; --muted:#94a3b8; --accent:#38bdf8; --accent2:#0ea5e9;
+    --ok:#22c55e; --warn:#f59e0b; --danger:#ef4444; --chip:#0b1220;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--txt);font-size:14px}
+  header{background:linear-gradient(90deg,#0ea5e9,#2563eb);padding:12px 20px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  header h1{font-size:18px;margin:0;font-weight:700}
+  header .sub{color:#dbeafe;font-size:12px}
+  header .spacer{flex:1}
+  .btn{background:var(--accent2);color:#fff;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600}
+  .btn:hover{filter:brightness(1.1)}
+  .btn.ghost{background:transparent;border:1px solid rgba(255,255,255,.5);color:#fff}
+  .btn.sm{padding:5px 10px;font-size:12px}
+  .btn.danger{background:var(--danger)}
+  .btn.gray{background:#475569}
+  .btn.green{background:#16a34a}
+  nav{display:flex;gap:4px;background:var(--panel);padding:8px 16px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+  nav button{background:transparent;color:var(--muted);border:none;padding:9px 14px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600}
+  nav button.active{background:var(--panel2);color:var(--accent)}
+  main{padding:20px;max-width:1200px;margin:0 auto}
+  .grid{display:grid;gap:16px}
+  .cards{grid-template-columns:repeat(auto-fill,minmax(280px,1fr))}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px}
+  .card h3{margin:0 0 4px;font-size:15px}
+  .plate{display:inline-block;background:var(--chip);border:1px solid var(--line);padding:2px 8px;border-radius:6px;font-family:monospace;letter-spacing:1px;font-size:12px}
+  .tag{display:inline-block;font-size:11px;padding:2px 8px;border-radius:20px;font-weight:700}
+  .tag.leve{background:#0e7490;color:#cffafe}
+  .tag.pesado{background:#7c2d12;color:#fed7aa}
+  .cat{display:inline-block;font-size:11px;padding:2px 8px;border-radius:6px;background:#334155;color:#cbd5e1}
+  .metric{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px dashed var(--line);font-size:13px}
+  .metric:last-child{border-bottom:none}
+  .metric b{color:#fff}
+  .muted{color:var(--muted)}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line)}
+  th{color:var(--muted);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.5px}
+  tr:hover td{background:rgba(255,255,255,.02)}
+  .toolbar{display:flex;gap:10px;align-items:center;margin-bottom:14px;flex-wrap:wrap}
+  .toolbar select,.toolbar input{background:var(--panel);border:1px solid var(--line);color:var(--txt);padding:8px;border-radius:8px}
+  .status{font-weight:700;font-size:12px;padding:3px 9px;border-radius:20px;display:inline-block}
+  .s-ok{background:rgba(34,197,94,.15);color:#4ade80}
+  .s-soon{background:rgba(245,158,11,.15);color:#fbbf24}
+  .s-late{background:rgba(239,68,68,.15);color:#f87171}
+  a.link{color:var(--accent);text-decoration:none}
+  a.link:hover{text-decoration:underline}
+  .overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:flex-start;justify-content:center;padding:40px 16px;overflow:auto;z-index:50}
+  .overlay.open{display:flex}
+  .modal{background:var(--panel);border:1px solid var(--line);border-radius:14px;width:100%;max-width:560px;padding:22px}
+  .modal h2{margin:0 0 16px;font-size:17px}
+  .field{margin-bottom:12px}
+  .field label{display:block;font-size:12px;color:var(--muted);margin-bottom:5px}
+  .field input,.field select,.field textarea{width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--txt);padding:9px;border-radius:8px;font-size:14px}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:18px}
+  .empty{text-align:center;color:var(--muted);padding:40px}
+  .pill{background:var(--chip);border:1px solid var(--line);padding:4px 10px;border-radius:20px;font-size:12px}
+  .big{font-size:26px;font-weight:800;color:#fff}
+  .kpi{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:18px}
+  .kpi .card{flex:1;min-width:150px}
+  .foot{color:var(--muted);font-size:12px;text-align:center;padding:20px}
+  .bar-row{display:flex;align-items:center;gap:10px;margin:6px 0;font-size:12px}
+  .bar-row .lbl{width:120px;text-align:right;color:var(--muted)}
+  .bar-track{flex:1;background:var(--chip);border-radius:6px;height:22px;overflow:hidden;display:flex}
+  .bar-seg{height:100%}
+  .bar-val{width:120px;font-size:12px;color:#fff}
+  .legend{display:flex;gap:14px;font-size:12px;color:var(--muted);margin:6px 0 12px}
+  .legend span{display:inline-flex;align-items:center;gap:5px}
+  .dot{width:11px;height:11px;border-radius:3px;display:inline-block}
+  .drivebox{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:12px}
+  textarea{font-family:monospace;font-size:12px;resize:vertical}
+</style>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+</head>
+<body>
+<header>
+  <div>
+    <h1>🚚 Controle de Veículos</h1>
+    <div class="sub">Frota leve e pesada · combustível · manutenção · financeiro</div>
+  </div>
+  <div class="spacer"></div>
+  <span class="pill" id="cloudStatus" title="Sincronização na nuvem">☁ nuvem desligada</span>
+  <button class="btn green sm" onclick="cloudConfig()">☁ Nuvem</button>
+  <button class="btn ghost sm" onclick="exportJSON()">⬇ Backup</button>
+  <button class="btn ghost sm" onclick="document.getElementById('importFile').click()">⬆ Restaurar</button>
+  <input type="file" id="importFile" accept="application/json" style="display:none" onchange="importJSON(event)">
+</header>
+
+<nav id="nav">
+  <button data-tab="dash" class="active">Painel</button>
+  <button data-tab="financeiro">Financeiro</button>
+  <button data-tab="veiculos">Veículos</button>
+  <button data-tab="abast">Abastecimentos</button>
+  <button data-tab="manut">Manutenções</button>
+  <button data-tab="planos">Planos de Manutenção</button>
+</nav>
+
+<main id="app"></main>
+<div class="foot" id="foot"></div>
+
+<div class="overlay" id="overlay"><div class="modal" id="modal"></div></div>
+
+<script>
+/* ================= CATEGORIAS ================= */
+const CATS=['Motor','Freio','Suspensão','Direção','Cabine','Elétrica','Câmbio/Transmissão',
+  'Arrefecimento','Pneus e Rodas','Filtros e Óleo','Ar-condicionado','Funilaria/Lataria','Documentação','Outros'];
+const CAT_COLOR={'Motor':'#ef4444','Freio':'#f59e0b','Suspensão':'#a855f7','Direção':'#8b5cf6','Cabine':'#14b8a6',
+  'Elétrica':'#eab308','Câmbio/Transmissão':'#3b82f6','Arrefecimento':'#06b6d4','Pneus e Rodas':'#64748b',
+  'Filtros e Óleo':'#22c55e','Ar-condicionado':'#0ea5e9','Funilaria/Lataria':'#ec4899','Documentação':'#94a3b8','Outros':'#6b7280'};
+
+/* ================= DADOS ================= */
+const KEY='controle_veiculos_v2';
+let DB={veiculos:[],abastecimentos:[],manutencoes:[],planos:[]};
+
+const uid=()=>Math.random().toString(36).slice(2,9);
+const money=n=>isFinite(n)?n.toLocaleString('pt-BR',{style:'currency',currency:'BRL'}):'—';
+const num=(n,d=2)=>isFinite(n)?n.toLocaleString('pt-BR',{minimumFractionDigits:d,maximumFractionDigits:d}):'—';
+const fmtDate=s=>{if(!s)return'—';const p=s.split('-');return `${p[2]}/${p[1]}/${p[0]}`;};
+const today=()=>new Date().toISOString().slice(0,10);
+const mesLabel=ym=>{const[a,m]=ym.split('-');return `${m}/${a}`;};
+
+function normalize(){
+  ['veiculos','abastecimentos','manutencoes','planos'].forEach(k=>DB[k]=DB[k]||[]);
+  DB.manutencoes.forEach(m=>{
+    if(!m.categoria)m.categoria='Outros';
+    if(m.parcelado===undefined)m.parcelado=false;
+    if(!m.numParcelas||m.numParcelas<1)m.numParcelas=1;
+    if(m.dataPrimeiraParcela===undefined)m.dataPrimeiraParcela='';
+  });
+  DB.planos.forEach(p=>{if(!p.categoria)p.categoria='Outros';});
+}
+
+/* ---- parcelamento ---- */
+function addMeses(iso,n){const d=new Date(iso);d.setMonth(d.getMonth()+n);return d.toISOString().slice(0,10);}
+function parcelasDe(m){
+  const num=m.parcelado?Math.max(1,+m.numParcelas||1):1;
+  const base=m.dataPrimeiraParcela||m.data;
+  const val=(+m.custo||0)/num;
+  const arr=[];
+  for(let i=0;i<num;i++)arr.push({n:i+1,venc:addMeses(base,i),valor:val});
+  return arr;
+}
+function resumoParcelas(m){
+  const arr=parcelasDe(m);const t=today();
+  const pagas=arr.filter(p=>p.venc<=t).length;
+  const abertas=arr.filter(p=>p.venc>t);
+  const emAberto=abertas.reduce((s,p)=>s+p.valor,0);
+  return {num:arr.length,pagas,restantes:arr.length-pagas,valorParcela:arr.length?arr[0].valor:0,
+    emAberto,quita:arr.length?arr[arr.length-1].venc:m.data,proxima:abertas[0]||null,arr};
+}
+
+/* ============ EXEMPLOS ============ */
+function seed(){
+  const v1=uid(), v2=uid();
+  DB={
+    veiculos:[
+      {id:v1,tipo:'leve',placa:'ABC1D23',marca:'Fiat',modelo:'Strada 1.4',ano:2022,combustivel:'Flex',km:38250,manual:'https://www.fiat.com.br/servicos/manuais.html',obs:'Uso urbano/entregas'},
+      {id:v2,tipo:'pesado',placa:'XYZ9E88',marca:'Mercedes-Benz',modelo:'Actros 2546',ano:2020,combustivel:'Diesel S10',km:412000,manual:'https://www.mercedes-benz-trucks.com/pt_BR/home.html',obs:'Carreta — rodoviário'}
+    ],
+    abastecimentos:[
+      {id:uid(),veiculo:v1,data:'2026-06-05',km:37600,litros:41.0,valor:266.5,cheio:true,posto:'Ipiranga'},
+      {id:uid(),veiculo:v1,data:'2026-06-18',km:38010,litros:34.2,valor:225.7,cheio:true,posto:'Shell'},
+      {id:uid(),veiculo:v1,data:'2026-07-02',km:38250,litros:20.1,valor:132.6,cheio:true,posto:'Ipiranga'},
+      {id:uid(),veiculo:v2,data:'2026-06-01',km:408500,litros:390.0,valor:2418.0,cheio:true,posto:'Posto Graal'},
+      {id:uid(),veiculo:v2,data:'2026-06-20',km:411100,litros:420.0,valor:2604.0,cheio:true,posto:'Rede Truck'},
+      {id:uid(),veiculo:v2,data:'2026-07-05',km:412000,litros:145.0,valor:899.0,cheio:true,posto:'Posto Graal'}
+    ],
+    manutencoes:[
+      {id:uid(),veiculo:v1,data:'2026-01-15',km:33000,categoria:'Filtros e Óleo',tipo:'Troca de óleo e filtro',custo:320,oficina:'Auto Center Silva',obs:'',parcelado:false,numParcelas:1,dataPrimeiraParcela:''},
+      {id:uid(),veiculo:v1,data:'2026-05-20',km:37500,categoria:'Elétrica',tipo:'Kit multimídia + câmera ré',custo:1200,oficina:'Mercado Livre',obs:'Compra parcelada',parcelado:true,numParcelas:12,dataPrimeiraParcela:'2026-06-20'},
+      {id:uid(),veiculo:v1,data:'2026-05-10',km:37000,categoria:'Freio',tipo:'Pastilhas de freio dianteiras',custo:480,oficina:'Auto Center Silva',obs:'',parcelado:false,numParcelas:1,dataPrimeiraParcela:''},
+      {id:uid(),veiculo:v2,data:'2026-03-02',km:400000,categoria:'Motor',tipo:'Revisão + troca de óleo motor',custo:3850,oficina:'Concessionária MB',obs:'Revisão de 400 mil km',parcelado:false,numParcelas:1,dataPrimeiraParcela:''},
+      {id:uid(),veiculo:v2,data:'2026-06-10',km:410000,categoria:'Pneus e Rodas',tipo:'Rodízio + 2 pneus novos',custo:5200,oficina:'Mercado Livre',obs:'Parcelado em 10x',parcelado:true,numParcelas:10,dataPrimeiraParcela:'2026-07-10'}
+    ],
+    planos:[
+      {id:uid(),veiculo:v1,item:'Troca de óleo do motor',categoria:'Filtros e Óleo',intervaloKm:10000,intervaloMeses:12,ultimaKm:33000,ultimaData:'2026-01-15'},
+      {id:uid(),veiculo:v1,item:'Filtro de ar',categoria:'Filtros e Óleo',intervaloKm:20000,intervaloMeses:24,ultimaKm:33000,ultimaData:'2026-01-15'},
+      {id:uid(),veiculo:v1,item:'Fluido de freio',categoria:'Freio',intervaloKm:0,intervaloMeses:24,ultimaKm:20000,ultimaData:'2024-06-01'},
+      {id:uid(),veiculo:v2,item:'Óleo do motor',categoria:'Filtros e Óleo',intervaloKm:40000,intervaloMeses:12,ultimaKm:400000,ultimaData:'2026-03-02'},
+      {id:uid(),veiculo:v2,item:'Filtro Racor / combustível',categoria:'Filtros e Óleo',intervaloKm:40000,intervaloMeses:12,ultimaKm:400000,ultimaData:'2026-03-02'},
+      {id:uid(),veiculo:v2,item:'Óleo do câmbio',categoria:'Câmbio/Transmissão',intervaloKm:120000,intervaloMeses:36,ultimaKm:360000,ultimaData:'2024-05-10'}
+    ]
+  };
+}
+
+/* ============ ARMAZENAMENTO / NUVEM (Firebase Firestore) ============ */
+const CLOUD_KEY='cv_cloud';
+let cloud={cfg:null,codigo:'',on:false,db:null,unsub:null};
+let saveTimer=null, cst=null;
+const overlayOpen=()=>document.getElementById('overlay').classList.contains('open');
+
+function save(){
+  try{localStorage.setItem(KEY,JSON.stringify(DB));}catch(e){}
+  if(cloud.on){clearTimeout(saveTimer);saveTimer=setTimeout(pushCloud,400);}
+}
+function setCloudUI(){
+  const el=document.getElementById('cloudStatus');if(!el)return;
+  if(cloud.on){el.textContent='☁ '+cloud.codigo;el.style.background='#065f46';el.style.borderColor='#10b981';}
+  else{el.textContent='☁ nuvem desligada';el.style.background='';el.style.borderColor='';}
+}
+function cloudStatus(msg,err){
+  const el=document.getElementById('cloudStatus');if(!el)return;clearTimeout(cst);
+  el.textContent=(err?'⚠ ':'✔ ')+msg;el.style.background=err?'#7f1d1d':'#065f46';el.style.borderColor=err?'#ef4444':'#10b981';
+  cst=setTimeout(setCloudUI,1800);
+}
+function initCloud(){
+  const raw=localStorage.getItem(CLOUD_KEY);if(!raw)return;
+  try{const c=JSON.parse(raw);cloud.cfg=c.cfg;cloud.codigo=c.codigo;}catch(e){return;}
+  startCloud();
+}
+function startCloud(){
+  if(!cloud.cfg||!cloud.codigo)return;
+  if(typeof firebase==='undefined'){cloudStatus('sem internet p/ nuvem',true);return;}
+  try{
+    if(!firebase.apps.length)firebase.initializeApp(cloud.cfg);
+    cloud.db=firebase.firestore();
+    cloud.db.enablePersistence({synchronizeTabs:true}).catch(()=>{});
+    firebase.auth().onAuthStateChanged(u=>{if(u)subscribe();});
+    firebase.auth().signInAnonymously().catch(e=>cloudStatus('erro login: '+(e.code||e.message),true));
+    cloud.on=true;setCloudUI();
+  }catch(e){cloudStatus('erro: '+e.message,true);}
+}
+function subscribe(){
+  if(cloud.unsub)cloud.unsub();
+  const ref=cloud.db.collection('frotas').doc(cloud.codigo);
+  cloud.unsub=ref.onSnapshot({includeMetadataChanges:false},snap=>{
+    if(!snap.exists){pushCloud();cloudStatus('nuvem criada');return;}
+    if(snap.metadata.hasPendingWrites)return; // eco do nosso próprio salvamento
+    const d=snap.data();
+    if(d&&d.json){try{DB=JSON.parse(d.json);normalize();if(!overlayOpen())render();cloudStatus('sincronizado');}catch(e){}}
+  },err=>cloudStatus('offline',true));
+}
+function pushCloud(){
+  if(!cloud.on||!cloud.db)return;
+  cloud.db.collection('frotas').doc(cloud.codigo)
+    .set({json:JSON.stringify(DB),ts:Date.now(),updatedAt:firebase.firestore.FieldValue.serverTimestamp()})
+    .then(()=>cloudStatus('salvo na nuvem'))
+    .catch(e=>cloudStatus('erro ao salvar: '+(e.code||e.message),true));
+}
+/* ---- Configuração da nuvem ---- */
+function cloudConfig(){
+  const cfgTxt=cloud.cfg?JSON.stringify(cloud.cfg,null,2):'';
+  openModal(`<h2>☁ Sincronização na nuvem</h2>
+    <div class="drivebox" style="line-height:1.5;margin-bottom:12px">
+    Cole a configuração do seu projeto <b>Firebase</b> e defina um <b>código da frota</b> (uma palavra secreta). Use o <b>mesmo config e o mesmo código</b> no PC e no celular — os dados sincronizam em tempo real. <a class="link" href="#" onclick="cloudGuide();return false;">Ver passo a passo</a>.
+    </div>
+    <div class="field"><label>Configuração do Firebase (cole o bloco firebaseConfig)</label>
+      <textarea id="c_cfg" rows="8" placeholder='{&#10;  "apiKey": "AIza...",&#10;  "authDomain": "seu-projeto.firebaseapp.com",&#10;  "projectId": "seu-projeto",&#10;  "appId": "1:..."&#10;}'>${cfgTxt.replace(/</g,'&lt;')}</textarea></div>
+    <div class="field"><label>Código da frota (secreto, igual em todos os aparelhos)</label><input id="c_cod" value="${cloud.codigo||''}" placeholder="ex: frota-denilson-2026"></div>
+    <div class="modal-actions">
+      ${cloud.on?'<button class="btn danger" onclick="cloudDisconnect()">Desligar</button>':''}
+      <button class="btn gray" onclick="closeModal()">Cancelar</button>
+      <button class="btn green" onclick="cloudSave()">Conectar</button></div>`);
+}
+function parseCfg(t){
+  try{const o=JSON.parse(t);if(o&&o.apiKey)return o;}catch(e){}
+  const o={};const re=/(\w+)\s*:\s*["'\`]([^"'\`]+)["'\`]/g;let m;
+  while(m=re.exec(t)){o[m[1]]=m[2];}
+  return Object.keys(o).length?o:null;
+}
+function cloudSave(){
+  const cfg=parseCfg(document.getElementById('c_cfg').value.trim());
+  const cod=document.getElementById('c_cod').value.trim();
+  if(!cfg||!cfg.apiKey||!cfg.projectId){alert('Configuração inválida. Cole o bloco do Firebase contendo apiKey e projectId.');return;}
+  if(!cod){alert('Defina um código da frota (a mesma palavra em todos os aparelhos).');return;}
+  localStorage.setItem(CLOUD_KEY,JSON.stringify({cfg,codigo:cod}));
+  alert('Nuvem configurada! O app vai recarregar para conectar.');
+  location.reload();
+}
+function cloudDisconnect(){
+  if(!confirm('Desligar a sincronização neste aparelho? Os dados locais continuam aqui.'))return;
+  localStorage.removeItem(CLOUD_KEY);location.reload();
+}
+function cloudGuide(){
+  openModal(`<h2>Como configurar (uma vez só)</h2>
+    <div class="drivebox" style="line-height:1.6">
+    1. Acesse <b>console.firebase.google.com</b> e faça login com sua conta Google.<br>
+    2. <b>Adicionar projeto</b> → dê um nome (ex.: Controle Veículos) → criar (pode pular o Analytics).<br>
+    3. Menu <b>Criação → Firestore Database → Criar banco de dados</b> → local <i>southamerica-east1</i> → começar em <b>modo de produção</b>.<br>
+    4. Aba <b>Regras</b>, cole e publique:<br>
+    <code style="display:block;background:#0b1220;padding:8px;border-radius:6px;margin:6px 0;white-space:pre-wrap">rules_version = '2';
+service cloud.firestore {
+  match /databases/{db}/documents {
+    match /frotas/{codigo} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}</code>
+    5. Menu <b>Criação → Authentication → Começar → Anônimo → ativar</b>.<br>
+    6. Engrenagem <b>⚙ Configurações do projeto → Seus apps → ícone Web (&lt;/&gt;)</b> → registre o app → copie o objeto <b>firebaseConfig</b>.<br>
+    7. Aqui no app, clique <b>☁ Nuvem</b>, cole esse config, escolha um <b>código da frota</b> e conecte.<br>
+    8. No celular e nos outros PCs, repita o passo 7 com o <b>mesmo config e mesmo código</b>. Pronto!<br><br>
+    <span class="muted">Guarde o config e o código em segredo — quem tiver os dois acessa seus dados.</span>
+    </div>
+    <div class="modal-actions"><button class="btn" onclick="cloudConfig()">Voltar</button></div>`);
+}
+
+/* ============ CÁLCULOS ============ */
+function vById(id){return DB.veiculos.find(v=>v.id===id);}
+function vNome(id){const v=vById(id);return v?`${v.marca} ${v.modelo} (${v.placa})`:'—';}
+
+function consumoVeiculo(vid){
+  const list=DB.abastecimentos.filter(a=>a.veiculo===vid&&a.cheio).sort((a,b)=>a.km-b.km);
+  let distTot=0,litrosTot=0;
+  for(let i=1;i<list.length;i++){const d=list[i].km-list[i-1].km;if(d>0){distTot+=d;litrosTot+=list[i].litros;}}
+  const kmL=litrosTot>0?distTot/litrosTot:NaN;
+  return {kmL,l100:isFinite(kmL)?100/kmL:NaN,distTot,litrosTot};
+}
+function custoManutVeiculo(vid){return DB.manutencoes.filter(m=>m.veiculo===vid).reduce((s,m)=>s+(+m.custo||0),0);}
+function custoCombVeiculo(vid){return DB.abastecimentos.filter(a=>a.veiculo===vid).reduce((s,a)=>s+(+a.valor||0),0);}
+function custoPorKm(vid){
+  const c=consumoVeiculo(vid);
+  const list=DB.abastecimentos.filter(a=>a.veiculo===vid);
+  const totalGasto=list.reduce((s,a)=>s+(+a.valor||0),0);
+  const totalLitros=list.reduce((s,a)=>s+(+a.litros||0),0);
+  const precoMedioL=totalLitros>0?totalGasto/totalLitros:NaN;
+  const custoKmComb=isFinite(c.kmL)&&isFinite(precoMedioL)?precoMedioL/c.kmL:NaN;
+  return {custoKmComb,precoMedioL};
+}
+function distanciaVeiculo(vid,ano){
+  let ks=DB.abastecimentos.filter(a=>a.veiculo===vid&&(!ano||a.data.slice(0,4)===ano)).map(a=>+a.km);
+  DB.manutencoes.filter(m=>m.veiculo===vid&&(!ano||m.data.slice(0,4)===ano)).forEach(m=>ks.push(+m.km));
+  if(!ano){const v=vById(vid);if(v)ks.push(+v.km);}
+  ks=ks.filter(k=>k>0);
+  if(ks.length<2)return NaN;
+  return Math.max(...ks)-Math.min(...ks);
+}
+
+function statusPlano(p){
+  const v=vById(p.veiculo);const kmAtual=v?+v.km:0;
+  let porKm=null,porTempo=null;
+  if(p.intervaloKm>0&&p.ultimaKm!=null&&p.ultimaKm!==''){const prox=+p.ultimaKm+ +p.intervaloKm;porKm={prox,restante:prox-kmAtual};}
+  if(p.intervaloMeses>0&&p.ultimaData){const d=new Date(p.ultimaData);d.setMonth(d.getMonth()+ +p.intervaloMeses);const prox=d.toISOString().slice(0,10);const restDias=Math.round((d-new Date(today()))/(1000*60*60*24));porTempo={prox,restDias};}
+  let status='ok',motivo=[];
+  if(porKm){if(porKm.restante<=0){status='late';motivo.push(`vencido há ${num(-porKm.restante,0)} km`);}else if(porKm.restante<=1000){if(status!=='late')status='soon';motivo.push(`faltam ${num(porKm.restante,0)} km`);}}
+  if(porTempo){if(porTempo.restDias<=0){status='late';motivo.push(`vencido há ${-porTempo.restDias} dias`);}else if(porTempo.restDias<=30){if(status!=='late')status='soon';motivo.push(`faltam ${porTempo.restDias} dias`);}}
+  return {porKm,porTempo,status,motivo,kmAtual};
+}
+function alertasVeiculo(vid){return DB.planos.filter(p=>p.veiculo===vid).map(p=>({p,st:statusPlano(p)})).filter(x=>x.st.status!=='ok');}
+
+/* ============ NAVEGAÇÃO ============ */
+let TAB='dash';
+document.getElementById('nav').addEventListener('click',e=>{
+  if(e.target.dataset.tab){TAB=e.target.dataset.tab;[...document.querySelectorAll('#nav button')].forEach(b=>b.classList.toggle('active',b.dataset.tab===TAB));render();}
+});
+function render(){
+  const app=document.getElementById('app');
+  const map={dash:viewDash,financeiro:viewFinance,veiculos:viewVeiculos,abast:viewAbast,manut:viewManut,planos:viewPlanos};
+  app.innerHTML=(map[TAB]||viewDash)();
+  document.getElementById('foot').innerHTML = cloud.on
+    ? `☁ Sincronizado na nuvem — código <b>${cloud.codigo}</b>. Abra com o mesmo código em outros aparelhos (PC/celular) para ver os mesmos dados em tempo real.`
+    : `Dados salvos neste aparelho. Clique em <b>☁ Nuvem</b> para sincronizar entre PC e celular. Use <b>Backup</b> por segurança.`;
+}
+
+/* ============ PAINEL ============ */
+function viewDash(){
+  if(DB.veiculos.length===0)return `<div class="empty">Nenhum veículo. Vá em <b>Veículos</b> para começar.</div>`;
+  const totComb=DB.abastecimentos.reduce((s,a)=>s+(+a.valor||0),0);
+  const totManut=DB.manutencoes.reduce((s,m)=>s+(+m.custo||0),0);
+  const alertasTot=DB.veiculos.reduce((s,v)=>s+alertasVeiculo(v.id).length,0);
+  let kpi=`<div class="kpi">
+    <div class="card"><div class="muted">Veículos</div><div class="big">${DB.veiculos.length}</div></div>
+    <div class="card"><div class="muted">Gasto combustível</div><div class="big">${money(totComb)}</div></div>
+    <div class="card"><div class="muted">Gasto manutenção</div><div class="big">${money(totManut)}</div></div>
+    <div class="card"><div class="muted">Alertas manutenção</div><div class="big" style="color:${alertasTot?'#f87171':'#4ade80'}">${alertasTot}</div></div>
+  </div>`;
+  let cards=DB.veiculos.map(v=>{
+    const c=consumoVeiculo(v.id),ck=custoPorKm(v.id),al=alertasVeiculo(v.id);
+    const alHtml=al.length?al.map(x=>`<div class="metric"><span class="status s-${x.st.status}">${x.p.item}</span><span class="muted">${x.st.motivo.join(' · ')}</span></div>`).join(''):`<div class="metric"><span class="muted">Manutenções em dia ✓</span></div>`;
+    return `<div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center"><h3>${v.marca} ${v.modelo}</h3><span class="tag ${v.tipo}">${v.tipo==='leve'?'LEVE':'PESADO'}</span></div>
+      <span class="plate">${v.placa}</span> <span class="muted">${v.ano||''} · ${v.combustivel||''}</span>
+      <div style="margin-top:10px">
+        <div class="metric"><span>Hodômetro</span><b>${num(v.km,0)} km</b></div>
+        <div class="metric"><span>Média consumo</span><b>${num(c.kmL)} km/L · ${num(c.l100)} L/100km</b></div>
+        <div class="metric"><span>Custo comb./km</span><b>${money(ck.custoKmComb)}</b></div>
+        <div class="metric"><span>Gasto manutenção</span><b>${money(custoManutVeiculo(v.id))}</b></div>
+        ${v.manual?`<div class="metric"><span>Manual</span><a class="link" href="${v.manual}" target="_blank" rel="noopener">Abrir manual ↗</a></div>`:''}
+      </div>
+      <div style="margin-top:8px;border-top:1px solid var(--line);padding-top:6px">
+        <div class="muted" style="font-size:12px;margin-bottom:4px">Manutenção conforme manual</div>${alHtml}
+      </div></div>`;
+  }).join('');
+  return kpi+`<div class="grid cards">${cards}</div>`;
+}
+
+/* ============ FINANCEIRO ============ */
+function anosDisponiveis(){
+  const s=new Set();
+  DB.abastecimentos.forEach(a=>s.add(a.data.slice(0,4)));
+  DB.manutencoes.forEach(m=>s.add(m.data.slice(0,4)));
+  return [...s].filter(Boolean).sort().reverse();
+}
+function barChart(rows,fmt){ // rows: [{label,segs:[{val,color}]}]
+  const max=Math.max(1,...rows.map(r=>r.segs.reduce((s,x)=>s+x.val,0)));
+  return rows.map(r=>{
+    const tot=r.segs.reduce((s,x)=>s+x.val,0);
+    const segs=r.segs.map(x=>`<div class="bar-seg" style="width:${(x.val/max*100).toFixed(1)}%;background:${x.color}"></div>`).join('');
+    return `<div class="bar-row"><div class="lbl">${r.label}</div><div class="bar-track">${segs}</div><div class="bar-val">${fmt(tot)}</div></div>`;
+  }).join('');
+}
+function viewFinance(){
+  if(DB.veiculos.length===0)return `<div class="empty">Cadastre veículos e lançamentos para ver a análise financeira.</div>`;
+  const fv=window._fFinV||'', fa=window._fFinA||'';
+  const okA=a=>(!fv||a.veiculo===fv)&&(!fa||a.data.slice(0,4)===fa);
+  const okM=m=>(!fv||m.veiculo===fv)&&(!fa||m.data.slice(0,4)===fa);
+  const abast=DB.abastecimentos.filter(okA), manut=DB.manutencoes.filter(okM);
+  const totComb=abast.reduce((s,a)=>s+(+a.valor||0),0);
+  const totManut=manut.reduce((s,m)=>s+(+m.custo||0),0);
+  const total=totComb+totManut;
+  // distância
+  let dist=0,temDist=false;
+  const vids=fv?[fv]:DB.veiculos.map(v=>v.id);
+  vids.forEach(id=>{const d=distanciaVeiculo(id,fa||null);if(isFinite(d)){dist+=d;temDist=true;}});
+  const custoKm=temDist&&dist>0?total/dist:NaN;
+  // toolbar
+  const selV=`<select onchange="window._fFinV=this.value;render()"><option value="">Todos os veículos</option>${DB.veiculos.map(v=>`<option value="${v.id}" ${fv===v.id?'selected':''}>${v.marca} ${v.modelo} (${v.placa})</option>`).join('')}</select>`;
+  const selA=`<select onchange="window._fFinA=this.value;render()"><option value="">Todos os anos</option>${anosDisponiveis().map(y=>`<option value="${y}" ${fa===y?'selected':''}>${y}</option>`).join('')}</select>`;
+  // KPIs
+  const kpi=`<div class="kpi">
+    <div class="card"><div class="muted">Custo total</div><div class="big">${money(total)}</div></div>
+    <div class="card"><div class="muted">Combustível</div><div class="big" style="font-size:22px">${money(totComb)}</div><div class="muted">${total>0?num(totComb/total*100,0):0}%</div></div>
+    <div class="card"><div class="muted">Manutenção</div><div class="big" style="font-size:22px">${money(totManut)}</div><div class="muted">${total>0?num(totManut/total*100,0):0}%</div></div>
+    <div class="card"><div class="muted">Custo por km (total)</div><div class="big" style="font-size:22px">${money(custoKm)}</div><div class="muted">${temDist?num(dist,0)+' km':'sem dados'}</div></div>
+  </div>`;
+  // gasto por mês
+  const meses={};
+  abast.forEach(a=>{const k=a.data.slice(0,7);(meses[k]=meses[k]||{c:0,m:0}).c+=+a.valor||0;});
+  manut.forEach(m=>{const k=m.data.slice(0,7);(meses[k]=meses[k]||{c:0,m:0}).m+=+m.custo||0;});
+  const mesesRows=Object.keys(meses).sort().map(k=>({label:mesLabel(k),segs:[{val:meses[k].c,color:'#38bdf8'},{val:meses[k].m,color:'#f59e0b'}]}));
+  const chartMeses=mesesRows.length?`<div class="legend"><span><i class="dot" style="background:#38bdf8"></i>Combustível</span><span><i class="dot" style="background:#f59e0b"></i>Manutenção</span></div>${barChart(mesesRows,money)}`:`<div class="muted">Sem lançamentos no período.</div>`;
+  // manutenção por categoria
+  const cats={};
+  manut.forEach(m=>{cats[m.categoria]=(cats[m.categoria]||0)+(+m.custo||0);});
+  const catRows=Object.keys(cats).sort((a,b)=>cats[b]-cats[a]).map(c=>({label:c,segs:[{val:cats[c],color:CAT_COLOR[c]||'#64748b'}]}));
+  const chartCats=catRows.length?barChart(catRows,money):`<div class="muted">Nenhuma manutenção no período.</div>`;
+  const catTable=catRows.length?`<table style="margin-top:10px"><thead><tr><th>Categoria</th><th>Custo</th><th>%</th></tr></thead><tbody>${Object.keys(cats).sort((a,b)=>cats[b]-cats[a]).map(c=>`<tr><td><span class="cat" style="background:${CAT_COLOR[c]||'#334155'};color:#0b1220;font-weight:700">${c}</span></td><td>${money(cats[c])}</td><td>${totManut>0?num(cats[c]/totManut*100,1):0}%</td></tr>`).join('')}</tbody></table>`:'';
+  // por veículo
+  let perVeic='';
+  if(!fv){
+    const rows=DB.veiculos.map(v=>{
+      const c=DB.abastecimentos.filter(a=>a.veiculo===v.id&&(!fa||a.data.slice(0,4)===fa)).reduce((s,a)=>s+(+a.valor||0),0);
+      const mm=DB.manutencoes.filter(m=>m.veiculo===v.id&&(!fa||m.data.slice(0,4)===fa)).reduce((s,m)=>s+(+m.custo||0),0);
+      const d=distanciaVeiculo(v.id,fa||null);const ck=isFinite(d)&&d>0?(c+mm)/d:NaN;
+      return `<tr><td><span class="tag ${v.tipo}">${v.tipo==='leve'?'LEVE':'PESADO'}</span> ${v.marca} ${v.modelo}</td><td>${money(c)}</td><td>${money(mm)}</td><td><b>${money(c+mm)}</b></td><td>${money(ck)}</td></tr>`;
+    }).join('');
+    perVeic=`<div class="card" style="margin-top:16px"><h3>Custo por veículo</h3><table><thead><tr><th>Veículo</th><th>Combustível</th><th>Manutenção</th><th>Total</th><th>Custo/km</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  }
+  // ---- Parcelas a pagar (compras parceladas) ----
+  const parcelados=DB.manutencoes.filter(m=>m.parcelado&&(!fv||m.veiculo===fv))
+    .map(m=>({m,r:resumoParcelas(m)})).filter(x=>x.r.restantes>0);
+  let parcSection='';
+  if(!parcelados.length){
+    parcSection=`<div class="card" style="margin-top:16px">
+      <h3>💳 Parcelas a pagar</h3>
+      <div class="empty" style="padding:22px">Nenhuma compra parcelada em aberto${fv?' para este veículo':''}.<br>
+      <span class="muted">Para controlar parcelas, vá em <b>Manutenções → Nova/Editar</b>, escolha <b>Pagamento: Parcelado</b> e informe o nº de parcelas e a data da 1ª. As parcelas e a data de quitação aparecem aqui.</span></div>
+    </div>`;
+  } else {
+    const totalAberto=parcelados.reduce((s,x)=>s+x.r.emAberto,0);
+    const quitaFinal=parcelados.reduce((mx,x)=>x.r.quita>mx?x.r.quita:mx,'0000-00-00');
+    // próxima parcela geral
+    let prox=null;
+    parcelados.forEach(x=>{if(x.r.proxima&&(!prox||x.r.proxima.venc<prox.venc))prox={venc:x.r.proxima.venc,valor:x.r.proxima.valor};});
+    // fluxo por mês futuro
+    const fut={};
+    parcelados.forEach(x=>x.r.arr.filter(p=>p.venc>today()).forEach(p=>{const k=p.venc.slice(0,7);fut[k]=(fut[k]||0)+p.valor;}));
+    const futRows=Object.keys(fut).sort().map(k=>({label:mesLabel(k),segs:[{val:fut[k],color:'#f472b6'}]}));
+    const chartFut=futRows.length?barChart(futRows,money):'<div class="muted">—</div>';
+    const tbl=parcelados.sort((a,b)=>a.r.quita.localeCompare(b.r.quita)).map(x=>`<tr>
+      <td>${vById(x.m.veiculo)?vById(x.m.veiculo).placa:'—'}</td>
+      <td>${x.m.tipo}<div class="muted">${x.m.oficina||''}</div></td>
+      <td>${money(x.m.custo)}</td>
+      <td>${x.r.num}x ${money(x.r.valorParcela)}</td>
+      <td>${x.r.pagas}/${x.r.num}</td>
+      <td><b>${money(x.r.emAberto)}</b></td>
+      <td>${x.r.proxima?fmtDate(x.r.proxima.venc):'—'}</td>
+      <td>${fmtDate(x.r.quita)}</td></tr>`).join('');
+    parcSection=`<div class="card" style="margin-top:16px">
+      <h3>💳 Parcelas a pagar</h3>
+      <div class="kpi" style="margin:8px 0 14px">
+        <div class="card"><div class="muted">Total em aberto</div><div class="big" style="font-size:22px">${money(totalAberto)}</div></div>
+        <div class="card"><div class="muted">Próxima parcela</div><div class="big" style="font-size:22px">${prox?money(prox.valor):'—'}</div><div class="muted">${prox?fmtDate(prox.venc):''}</div></div>
+        <div class="card"><div class="muted">Quitação final (até)</div><div class="big" style="font-size:22px">${fmtDate(quitaFinal)}</div></div>
+      </div>
+      <div class="grid" style="grid-template-columns:1fr 1fr;gap:16px">
+        <div><div class="muted" style="font-size:12px;margin-bottom:6px">A pagar por mês</div>${chartFut}</div>
+        <div style="overflow:auto"><table><thead><tr><th>Placa</th><th>Compra</th><th>Total</th><th>Parcela</th><th>Pagas</th><th>Em aberto</th><th>Próxima</th><th>Quita em</th></tr></thead><tbody>${tbl}</tbody></table></div>
+      </div>
+      <div class="muted" style="font-size:12px;margin-top:8px">Parcelas com vencimento até hoje são consideradas pagas. Baseado na data da 1ª parcela + 1 por mês.</div>
+    </div>`;
+  }
+  return `<div class="toolbar">${selV}${selA}</div>${kpi}
+    <div class="grid" style="grid-template-columns:1fr 1fr">
+      <div class="card"><h3>Gasto por mês</h3>${chartMeses}</div>
+      <div class="card"><h3>Manutenção por categoria</h3>${chartCats}${catTable}</div>
+    </div>${parcSection}${perVeic}`;
+}
+
+/* ============ VEÍCULOS ============ */
+function viewVeiculos(){
+  const rows=DB.veiculos.map(v=>`<tr>
+    <td><span class="tag ${v.tipo}">${v.tipo==='leve'?'LEVE':'PESADO'}</span></td>
+    <td><span class="plate">${v.placa}</span></td>
+    <td>${v.marca} ${v.modelo}<div class="muted">${v.ano||''} · ${v.combustivel||''}</div></td>
+    <td>${num(v.km,0)} km</td>
+    <td>${v.manual?`<a class="link" href="${v.manual}" target="_blank" rel="noopener">Manual ↗</a>`:'<span class="muted">—</span>'}</td>
+    <td style="text-align:right"><button class="btn sm gray" onclick="editVeiculo('${v.id}')">Editar</button> <button class="btn sm danger" onclick="delItem('veiculos','${v.id}')">×</button></td>
+  </tr>`).join('');
+  return `<div class="toolbar"><button class="btn" onclick="editVeiculo()">+ Novo veículo</button></div>
+    <div class="card"><table><thead><tr><th>Tipo</th><th>Placa</th><th>Veículo</th><th>Hodômetro</th><th>Manual</th><th></th></tr></thead>
+    <tbody>${rows||`<tr><td colspan="6" class="empty">Nenhum veículo.</td></tr>`}</tbody></table></div>`;
+}
+
+/* ============ ABASTECIMENTOS ============ */
+function viewAbast(){
+  const filt=window._fAbast||'';
+  let list=DB.abastecimentos.slice().sort((a,b)=>b.data.localeCompare(a.data));
+  if(filt)list=list.filter(a=>a.veiculo===filt);
+  const rows=list.map(a=>{const precoL=a.litros>0?a.valor/a.litros:NaN;return `<tr>
+    <td>${fmtDate(a.data)}</td><td>${vNome(a.veiculo)}</td><td>${num(a.km,0)} km</td><td>${num(a.litros)} L</td>
+    <td>${money(a.valor)}</td><td>${money(precoL)}/L</td><td>${a.cheio?'✓':'parcial'}</td>
+    <td style="text-align:right"><button class="btn sm gray" onclick="editAbast('${a.id}')">Editar</button> <button class="btn sm danger" onclick="delItem('abastecimentos','${a.id}')">×</button></td></tr>`;}).join('');
+  return `<div class="toolbar"><button class="btn" onclick="editAbast()">+ Novo abastecimento</button>${selVeic('_fAbast','Todos os veículos')}</div>
+    <div class="card"><table><thead><tr><th>Data</th><th>Veículo</th><th>Hodômetro</th><th>Litros</th><th>Valor</th><th>Preço/L</th><th>Cheio?</th><th></th></tr></thead>
+    <tbody>${rows||`<tr><td colspan="8" class="empty">Nenhum abastecimento.</td></tr>`}</tbody></table></div>
+    <div class="muted" style="margin-top:10px;font-size:12px">💡 A média usa o método "tanque cheio a tanque cheio". Marque <b>Cheio?</b> ao encher o tanque.</div>`;
+}
+
+/* ============ MANUTENÇÕES ============ */
+function viewManut(){
+  const filt=window._fManut||'', filtC=window._fManutC||'';
+  let list=DB.manutencoes.slice().sort((a,b)=>b.data.localeCompare(a.data));
+  if(filt)list=list.filter(m=>m.veiculo===filt);
+  if(filtC)list=list.filter(m=>m.categoria===filtC);
+  const rows=list.map(m=>{
+    let parcHtml='';
+    if(m.parcelado){const r=resumoParcelas(m);parcHtml=`<div><span class="cat" style="background:#facc15;color:#0b1220;font-weight:700">${r.num}x ${money(r.valorParcela)}</span> <span class="muted">${r.pagas}/${r.num} pagas · quita ${fmtDate(r.quita)}</span></div>`;}
+    return `<tr>
+    <td>${fmtDate(m.data)}</td><td>${vNome(m.veiculo)}</td>
+    <td><span class="cat" style="background:${CAT_COLOR[m.categoria]||'#334155'};color:#0b1220;font-weight:700">${m.categoria||'Outros'}</span></td>
+    <td>${m.tipo}${m.oficina?`<div class="muted">${m.oficina}</div>`:''}${parcHtml}</td>
+    <td>${num(m.km,0)} km</td><td>${money(m.custo)}</td><td>${m.parcelado?`<span class="pill">${resumoParcelas(m).num}x</span>`:'<span class="muted">à vista</span>'}</td>
+    <td style="text-align:right"><button class="btn sm gray" onclick="editManut('${m.id}')">Editar</button> <button class="btn sm danger" onclick="delItem('manutencoes','${m.id}')">×</button></td>
+  </tr>`;}).join('');
+  const total=list.reduce((s,m)=>s+(+m.custo||0),0);
+  const selCat=`<select onchange="window._fManutC=this.value;render()"><option value="">Todas as categorias</option>${CATS.map(c=>`<option value="${c}" ${filtC===c?'selected':''}>${c}</option>`).join('')}</select>`;
+  return `<div class="toolbar"><button class="btn" onclick="editManut()">+ Nova manutenção</button>${selVeic('_fManut','Todos os veículos')}${selCat}<span class="pill">Total exibido: <b>${money(total)}</b></span></div>
+    <div class="card"><table><thead><tr><th>Data</th><th>Veículo</th><th>Categoria</th><th>Serviço / oficina</th><th>Hodômetro</th><th>Custo</th><th>Pagamento</th><th></th></tr></thead>
+    <tbody>${rows||`<tr><td colspan="8" class="empty">Nenhuma manutenção.</td></tr>`}</tbody></table></div>`;
+}
+
+/* ============ PLANOS ============ */
+function viewPlanos(){
+  const filt=window._fPlano||'';
+  let list=DB.planos.slice();
+  if(filt)list=list.filter(p=>p.veiculo===filt);
+  const ord={late:0,soon:1,ok:2};
+  list=list.map(p=>({p,st:statusPlano(p)})).sort((a,b)=>ord[a.st.status]-ord[b.st.status]);
+  const rows=list.map(function(o){
+    const p=o.p,st=o.st;
+    const cls=st.status==='late'?'s-late':st.status==='soon'?'s-soon':'s-ok';
+    const lbl=st.status==='late'?'VENCIDO':st.status==='soon'?'PRÓXIMO':'EM DIA';
+    const kmInfo=st.porKm?`${num(st.porKm.prox,0)} km ${st.porKm.restante<=0?`<span class="muted">(venc. ${num(-st.porKm.restante,0)} km)</span>`:`<span class="muted">(faltam ${num(st.porKm.restante,0)})</span>`}`:'<span class="muted">—</span>';
+    const tInfo=st.porTempo?`${fmtDate(st.porTempo.prox)} ${st.porTempo.restDias<=0?`<span class="muted">(vencido)</span>`:`<span class="muted">(${st.porTempo.restDias}d)</span>`}`:'<span class="muted">—</span>';
+    return `<tr><td>${vNome(p.veiculo)}</td>
+      <td><span class="cat" style="background:${CAT_COLOR[p.categoria]||'#334155'};color:#0b1220;font-weight:700">${p.categoria||'Outros'}</span> ${p.item}</td>
+      <td>${p.intervaloKm>0?num(p.intervaloKm,0)+' km':'—'} / ${p.intervaloMeses>0?p.intervaloMeses+' m':'—'}</td>
+      <td>${p.ultimaKm!=null&&p.ultimaKm!==''?num(p.ultimaKm,0)+' km':'—'}<div class="muted">${fmtDate(p.ultimaData)}</div></td>
+      <td>${kmInfo}</td><td>${tInfo}</td><td><span class="status ${cls}">${lbl}</span></td>
+      <td style="text-align:right"><button class="btn sm gray" onclick="marcarFeito('${p.id}')" title="Registrar feito agora">✓ Feito</button> <button class="btn sm gray" onclick="editPlano('${p.id}')">Editar</button> <button class="btn sm danger" onclick="delItem('planos','${p.id}')">×</button></td></tr>`;
+  }).join('');
+  return `<div class="toolbar"><button class="btn" onclick="editPlano()">+ Novo item de plano</button>${selVeic('_fPlano','Todos os veículos')}</div>
+    <div class="card"><table><thead><tr><th>Veículo</th><th>Item</th><th>Interv. (km/tempo)</th><th>Última</th><th>Próx. km</th><th>Próx. tempo</th><th>Status</th><th></th></tr></thead>
+    <tbody>${rows||`<tr><td colspan="8" class="empty">Nenhum plano.</td></tr>`}</tbody></table></div>
+    <div class="muted" style="margin-top:10px;font-size:12px">💡 Alerta pelo que vencer primeiro: km <b>ou</b> tempo. <b>✓ Feito</b> atualiza para o hodômetro atual e a data de hoje.</div>`;
+}
+
+function selVeic(varName,placeholder){
+  const opts=DB.veiculos.map(v=>`<option value="${v.id}" ${window[varName]===v.id?'selected':''}>${v.marca} ${v.modelo} (${v.placa})</option>`).join('');
+  return `<select onchange="window['${varName}']=this.value;render()"><option value="">${placeholder}</option>${opts}</select>`;
+}
+function catOptions(sel){return CATS.map(c=>`<option value="${c}" ${sel===c?'selected':''}>${c}</option>`).join('');}
+
+/* ============ MODAL ============ */
+const overlay=document.getElementById('overlay'),modalEl=document.getElementById('modal');
+function openModal(html){modalEl.innerHTML=html;overlay.classList.add('open');}
+function closeModal(){overlay.classList.remove('open');}
+overlay.addEventListener('click',e=>{if(e.target===overlay)closeModal();});
+const g=id=>document.getElementById(id).value.trim();
+const gn=id=>parseFloat(document.getElementById(id).value)||0;
+
+function editVeiculo(id){
+  const v=id?vById(id):{tipo:'leve',placa:'',marca:'',modelo:'',ano:'',combustivel:'Flex',km:0,manual:'',obs:''};
+  openModal(`<h2>${id?'Editar':'Novo'} veículo</h2>
+    <div class="row2"><div class="field"><label>Tipo</label><select id="f_tipo"><option value="leve" ${v.tipo==='leve'?'selected':''}>Leve</option><option value="pesado" ${v.tipo==='pesado'?'selected':''}>Pesado</option></select></div>
+    <div class="field"><label>Placa</label><input id="f_placa" value="${v.placa||''}"></div></div>
+    <div class="row2"><div class="field"><label>Marca</label><input id="f_marca" value="${v.marca||''}"></div><div class="field"><label>Modelo</label><input id="f_modelo" value="${v.modelo||''}"></div></div>
+    <div class="row2"><div class="field"><label>Ano</label><input id="f_ano" type="number" value="${v.ano||''}"></div><div class="field"><label>Combustível</label><input id="f_comb" value="${v.combustivel||''}"></div></div>
+    <div class="field"><label>Hodômetro atual (km)</label><input id="f_km" type="number" value="${v.km||0}"></div>
+    <div class="field"><label>Link do manual do fabricante (URL)</label><input id="f_manual" placeholder="https://..." value="${v.manual||''}"></div>
+    <div class="field"><label>Observações</label><input id="f_obs" value="${v.obs||''}"></div>
+    <div class="modal-actions"><button class="btn gray" onclick="closeModal()">Cancelar</button><button class="btn" onclick="saveVeiculo('${id||''}')">Salvar</button></div>`);
+}
+function saveVeiculo(id){
+  const o={tipo:g('f_tipo'),placa:g('f_placa').toUpperCase(),marca:g('f_marca'),modelo:g('f_modelo'),ano:g('f_ano'),combustivel:g('f_comb'),km:gn('f_km'),manual:g('f_manual'),obs:g('f_obs')};
+  if(!o.placa||!o.marca){alert('Preencha ao menos placa e marca.');return;}
+  if(id){Object.assign(vById(id),o);}else{o.id=uid();DB.veiculos.push(o);}
+  save();closeModal();render();
+}
+
+function editAbast(id){
+  const a=id?DB.abastecimentos.find(x=>x.id===id):{veiculo:(DB.veiculos[0]||{}).id||'',data:today(),km:'',litros:'',valor:'',cheio:true,posto:''};
+  openModal(`<h2>${id?'Editar':'Novo'} abastecimento</h2>
+    <div class="field"><label>Veículo</label><select id="f_v">${DB.veiculos.map(v=>`<option value="${v.id}" ${a.veiculo===v.id?'selected':''}>${v.marca} ${v.modelo} (${v.placa})</option>`).join('')}</select></div>
+    <div class="row2"><div class="field"><label>Data</label><input id="f_data" type="date" value="${a.data||today()}"></div><div class="field"><label>Hodômetro (km)</label><input id="f_km" type="number" value="${a.km!=null?a.km:''}"></div></div>
+    <div class="row2"><div class="field"><label>Litros</label><input id="f_litros" type="number" step="0.01" value="${a.litros!=null?a.litros:''}"></div><div class="field"><label>Valor total (R$)</label><input id="f_valor" type="number" step="0.01" value="${a.valor!=null?a.valor:''}"></div></div>
+    <div class="row2"><div class="field"><label>Tanque cheio?</label><select id="f_cheio"><option value="1" ${a.cheio?'selected':''}>Sim</option><option value="0" ${!a.cheio?'selected':''}>Não (parcial)</option></select></div><div class="field"><label>Posto</label><input id="f_posto" value="${a.posto||''}"></div></div>
+    <div class="modal-actions"><button class="btn gray" onclick="closeModal()">Cancelar</button><button class="btn" onclick="saveAbast('${id||''}')">Salvar</button></div>`);
+}
+function saveAbast(id){
+  const o={veiculo:g('f_v'),data:g('f_data'),km:gn('f_km'),litros:gn('f_litros'),valor:gn('f_valor'),cheio:g('f_cheio')==='1',posto:g('f_posto')};
+  if(!o.veiculo||!o.km){alert('Selecione veículo e informe o hodômetro.');return;}
+  if(id){Object.assign(DB.abastecimentos.find(x=>x.id===id),o);}else{o.id=uid();DB.abastecimentos.push(o);}
+  const v=vById(o.veiculo);if(v&&o.km>v.km)v.km=o.km;
+  save();closeModal();render();
+}
+
+function editManut(id){
+  const m=id?DB.manutencoes.find(x=>x.id===id):{veiculo:(DB.veiculos[0]||{}).id||'',data:today(),km:'',categoria:'Motor',tipo:'',custo:'',oficina:'',obs:''};
+  openModal(`<h2>${id?'Editar':'Nova'} manutenção</h2>
+    <div class="row2"><div class="field"><label>Veículo</label><select id="f_v">${DB.veiculos.map(v=>`<option value="${v.id}" ${m.veiculo===v.id?'selected':''}>${v.marca} ${v.modelo} (${v.placa})</option>`).join('')}</select></div>
+    <div class="field"><label>Categoria</label><select id="f_cat">${catOptions(m.categoria)}</select></div></div>
+    <div class="row2"><div class="field"><label>Data</label><input id="f_data" type="date" value="${m.data||today()}"></div><div class="field"><label>Hodômetro (km)</label><input id="f_km" type="number" value="${m.km!=null?m.km:''}"></div></div>
+    <div class="field"><label>Serviço / descrição</label><input id="f_tipo" value="${m.tipo||''}" placeholder="Ex: Troca de óleo, pastilhas de freio..."></div>
+    <div class="row2"><div class="field"><label>Custo total (R$)</label><input id="f_custo" type="number" step="0.01" value="${m.custo!=null?m.custo:''}" oninput="calcParcela()"></div><div class="field"><label>Oficina / loja</label><input id="f_oficina" value="${m.oficina||''}" placeholder="Ex: Mercado Livre"></div></div>
+    <div class="row2"><div class="field"><label>Pagamento</label><select id="f_pag" onchange="togParc()"><option value="vista" ${!m.parcelado?'selected':''}>À vista</option><option value="parc" ${m.parcelado?'selected':''}>Parcelado</option></select></div>
+      <div class="field"><label>Nº de parcelas</label><input id="f_np" type="number" min="1" value="${m.numParcelas||1}" oninput="calcParcela()"></div></div>
+    <div class="field" id="wrapDP"><label>Data da 1ª parcela</label><input id="f_dp" type="date" value="${m.dataPrimeiraParcela||m.data||today()}"><div class="muted" id="parcHint" style="margin-top:6px;font-size:12px"></div></div>
+    <div class="field"><label>Observações</label><input id="f_obs" value="${m.obs||''}"></div>
+    <div class="modal-actions"><button class="btn gray" onclick="closeModal()">Cancelar</button><button class="btn" onclick="saveManut('${id||''}')">Salvar</button></div>`);
+  togParc();
+}
+function togParc(){
+  const parc=document.getElementById('f_pag').value==='parc';
+  document.getElementById('f_np').closest('.row2').style.opacity=parc?'1':'.45';
+  document.getElementById('f_np').disabled=!parc;
+  document.getElementById('wrapDP').style.display=parc?'block':'none';
+  calcParcela();
+}
+function calcParcela(){
+  const el=document.getElementById('parcHint');if(!el)return;
+  const parc=document.getElementById('f_pag').value==='parc';
+  const custo=gn('f_custo'),np=Math.max(1,gn('f_np'));
+  if(parc&&custo>0){const base=document.getElementById('f_dp').value||today();const quita=addMeses(base,np-1);
+    el.innerHTML=`${np}x de <b>${money(custo/np)}</b> · última parcela em <b>${fmtDate(quita)}</b>`;}
+  else el.textContent='';
+}
+function saveManut(id){
+  const parc=g('f_pag')==='parc';
+  const o={veiculo:g('f_v'),data:g('f_data'),km:gn('f_km'),categoria:g('f_cat'),tipo:g('f_tipo'),custo:gn('f_custo'),oficina:g('f_oficina'),obs:g('f_obs'),
+    parcelado:parc,numParcelas:parc?Math.max(1,gn('f_np')):1,dataPrimeiraParcela:parc?(g('f_dp')||g('f_data')):''};
+  if(!o.veiculo||!o.tipo){alert('Selecione veículo e informe o serviço.');return;}
+  if(id){Object.assign(DB.manutencoes.find(x=>x.id===id),o);}else{o.id=uid();DB.manutencoes.push(o);}
+  const v=vById(o.veiculo);if(v&&o.km>v.km)v.km=o.km;
+  save();closeModal();render();
+}
+
+function editPlano(id){
+  const p=id?DB.planos.find(x=>x.id===id):{veiculo:(DB.veiculos[0]||{}).id||'',item:'',categoria:'Filtros e Óleo',intervaloKm:'',intervaloMeses:'',ultimaKm:'',ultimaData:today()};
+  openModal(`<h2>${id?'Editar':'Novo'} item de plano</h2>
+    <div class="row2"><div class="field"><label>Veículo</label><select id="f_v">${DB.veiculos.map(v=>`<option value="${v.id}" ${p.veiculo===v.id?'selected':''}>${v.marca} ${v.modelo} (${v.placa})</option>`).join('')}</select></div>
+    <div class="field"><label>Categoria</label><select id="f_cat">${catOptions(p.categoria)}</select></div></div>
+    <div class="field"><label>Item (conforme manual)</label><input id="f_item" value="${p.item||''}" placeholder="Ex: Troca de óleo do motor"></div>
+    <div class="row2"><div class="field"><label>Intervalo por km (0 = não usar)</label><input id="f_ik" type="number" value="${p.intervaloKm!=null?p.intervaloKm:''}"></div><div class="field"><label>Intervalo por meses (0 = não usar)</label><input id="f_im" type="number" value="${p.intervaloMeses!=null?p.intervaloMeses:''}"></div></div>
+    <div class="row2"><div class="field"><label>Última feita — km</label><input id="f_uk" type="number" value="${p.ultimaKm!=null?p.ultimaKm:''}"></div><div class="field"><label>Última feita — data</label><input id="f_ud" type="date" value="${p.ultimaData||today()}"></div></div>
+    <div class="modal-actions"><button class="btn gray" onclick="closeModal()">Cancelar</button><button class="btn" onclick="savePlano('${id||''}')">Salvar</button></div>`);
+}
+function savePlano(id){
+  const o={veiculo:g('f_v'),item:g('f_item'),categoria:g('f_cat'),intervaloKm:gn('f_ik'),intervaloMeses:gn('f_im'),ultimaKm:gn('f_uk'),ultimaData:g('f_ud')};
+  if(!o.veiculo||!o.item){alert('Selecione veículo e informe o item.');return;}
+  if(id){Object.assign(DB.planos.find(x=>x.id===id),o);}else{o.id=uid();DB.planos.push(o);}
+  save();closeModal();render();
+}
+function marcarFeito(id){
+  const p=DB.planos.find(x=>x.id===id);const v=vById(p.veiculo);
+  if(!confirm(`Registrar "${p.item}" como feito hoje (${num(v?v.km:0,0)} km)?`))return;
+  p.ultimaKm=v?v.km:p.ultimaKm;p.ultimaData=today();save();render();
+}
+function delItem(col,id){if(!confirm('Excluir este registro?'))return;DB[col]=DB[col].filter(x=>x.id!==id);save();render();}
+
+/* ============ BACKUP ============ */
+function exportJSON(){
+  const blob=new Blob([JSON.stringify(DB,null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='backup-controle-veiculos-'+today()+'.json';a.click();
+}
+function importJSON(e){
+  const f=e.target.files[0];if(!f)return;const r=new FileReader();
+  r.onload=()=>{try{const d=JSON.parse(r.result);if(d.veiculos){DB=d;normalize();save();render();alert('Backup restaurado.');}else alert('Arquivo inválido.');}catch(err){alert('Erro ao ler o arquivo.');}};
+  r.readAsText(f);e.target.value='';
+}
+
+/* ============ INÍCIO ============ */
+function boot(){
+  const raw=localStorage.getItem(KEY);
+  if(raw){try{DB=JSON.parse(raw);}catch(e){}}
+  if(!DB.veiculos||DB.veiculos.length===0)seed();
+  normalize();
+  setCloudUI();render();
+  initCloud();
+}
+boot();
+</script>
+</body>
+</html>
