@@ -77,6 +77,28 @@
   .dot{width:11px;height:11px;border-radius:3px;display:inline-block}
   .drivebox{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:12px}
   textarea{font-family:monospace;font-size:12px;resize:vertical}
+  @media (max-width:640px){
+    header{padding:10px 12px;gap:8px}
+    header h1{font-size:16px}
+    header .sub{font-size:11px}
+    .btn.sm{padding:6px 9px}
+    main{padding:12px}
+    nav{gap:2px;padding:6px 8px;flex-wrap:nowrap;overflow-x:auto}
+    nav button{padding:8px 10px;font-size:12px;white-space:nowrap}
+    .row2{grid-template-columns:1fr}
+    .modal{padding:16px;border-radius:12px}
+    .overlay{padding:16px 8px}
+    .card{padding:12px;overflow-x:auto}
+    .kpi{gap:10px}
+    .kpi .card{min-width:calc(50% - 6px)}
+    .big{font-size:22px}
+    table{font-size:12px}
+    th,td{padding:6px 6px}
+    .bar-row .lbl{width:74px}
+    .bar-val{width:88px}
+    .toolbar{gap:8px}
+    .toolbar select,.toolbar input{width:100%}
+  }
 </style>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
