@@ -146,23 +146,31 @@ function normalize(){
   DB.planos.forEach(p=>{if(!p.categoria)p.categoria='Outros';});
 }
 
-/* ---- parcelamento ---- */
-function addMeses(iso,n){const d=new Date(iso);d.setMonth(d.getMonth()+n);return d.toISOString().slice(0,10);}
+/* ---- parcelamento (vencimento por MÊS de fatura; regra do dia 10) ---- */
+function addMesYM(ym,n){let p=ym.split('-').map(Number);const d=new Date(p[0],p[1]-1+n,1);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');}
+// Compra até o dia 10 -> 1ª parcela no mês da compra; após o dia 10 -> mês seguinte
+function mesFaturaFromDate(dateStr){
+  const s=dateStr||today();const p=s.split('-').map(Number);
+  let ym=p[0]+'-'+String(p[1]).padStart(2,'0');
+  if(p[2]>10)ym=addMesYM(ym,1);
+  return ym;
+}
+function mesBaseFatura(m){return mesFaturaFromDate(m.data);}
 function parcelasDe(m){
   const num=m.parcelado?Math.max(1,+m.numParcelas||1):1;
-  const base=m.dataPrimeiraParcela||m.data;
+  const base=mesBaseFatura(m);
   const val=(+m.custo||0)/num;
   const arr=[];
-  for(let i=0;i<num;i++)arr.push({n:i+1,venc:addMeses(base,i),valor:val});
+  for(let i=0;i<num;i++)arr.push({n:i+1,mes:addMesYM(base,i),valor:val});
   return arr;
 }
 function resumoParcelas(m){
-  const arr=parcelasDe(m);const t=today();
-  const pagas=arr.filter(p=>p.venc<=t).length;
-  const abertas=arr.filter(p=>p.venc>t);
+  const arr=parcelasDe(m);const cur=today().slice(0,7);
+  const pagas=arr.filter(p=>p.mes<cur).length;
+  const abertas=arr.filter(p=>p.mes>=cur);
   const emAberto=abertas.reduce((s,p)=>s+p.valor,0);
-  return {num:arr.length,pagas,restantes:arr.length-pagas,valorParcela:arr.length?arr[0].valor:0,
-    emAberto,quita:arr.length?arr[arr.length-1].venc:m.data,proxima:abertas[0]||null,arr};
+  return {num:arr.length,pagas,restantes:abertas.length,valorParcela:arr.length?arr[0].valor:0,
+    emAberto,quita:arr.length?arr[arr.length-1].mes:mesBaseFatura(m),proxima:abertas[0]||null,arr};
 }
 
 /* ============ EXEMPLOS ============ */
@@ -510,22 +518,23 @@ function viewFinance(){
   // ---- Parcelas a pagar (compras parceladas) ----
   const parcelados=DB.manutencoes.filter(m=>m.parcelado&&(!fv||m.veiculo===fv))
     .map(m=>({m,r:resumoParcelas(m)})).filter(x=>x.r.restantes>0);
+  const cur=today().slice(0,7);
   let parcSection='';
   if(!parcelados.length){
     parcSection=`<div class="card" style="margin-top:16px">
       <h3>💳 Parcelas a pagar</h3>
       <div class="empty" style="padding:22px">Nenhuma compra parcelada em aberto${fv?' para este veículo':''}.<br>
-      <span class="muted">Para controlar parcelas, vá em <b>Manutenções → Nova/Editar</b>, escolha <b>Pagamento: Parcelado</b> e informe o nº de parcelas e a data da 1ª. As parcelas e a data de quitação aparecem aqui.</span></div>
+      <span class="muted">Para controlar parcelas, vá em <b>Manutenções → Nova/Editar</b>, escolha <b>Pagamento: Parcelado</b> e informe o nº de parcelas. O 1º vencimento na fatura é calculado pela data da compra: até o dia 10, no mês da compra; após o dia 10, no mês seguinte.</span></div>
     </div>`;
   } else {
     const totalAberto=parcelados.reduce((s,x)=>s+x.r.emAberto,0);
-    const quitaFinal=parcelados.reduce((mx,x)=>x.r.quita>mx?x.r.quita:mx,'0000-00-00');
-    // próxima parcela geral
+    const quitaFinal=parcelados.reduce((mx,x)=>x.r.quita>mx?x.r.quita:mx,'0000-00');
+    // próxima parcela geral (menor mês em aberto)
     let prox=null;
-    parcelados.forEach(x=>{if(x.r.proxima&&(!prox||x.r.proxima.venc<prox.venc))prox={venc:x.r.proxima.venc,valor:x.r.proxima.valor};});
-    // fluxo por mês futuro
+    parcelados.forEach(x=>{if(x.r.proxima&&(!prox||x.r.proxima.mes<prox.mes))prox={mes:x.r.proxima.mes,valor:x.r.proxima.valor};});
+    // fluxo por mês (parcelas em aberto)
     const fut={};
-    parcelados.forEach(x=>x.r.arr.filter(p=>p.venc>today()).forEach(p=>{const k=p.venc.slice(0,7);fut[k]=(fut[k]||0)+p.valor;}));
+    parcelados.forEach(x=>x.r.arr.filter(p=>p.mes>=cur).forEach(p=>{fut[p.mes]=(fut[p.mes]||0)+p.valor;}));
     const futRows=Object.keys(fut).sort().map(k=>({label:mesLabel(k),segs:[{val:fut[k],color:'#f472b6'}]}));
     const chartFut=futRows.length?barChart(futRows,money):'<div class="muted">—</div>';
     const tbl=parcelados.sort((a,b)=>a.r.quita.localeCompare(b.r.quita)).map(x=>`<tr>
@@ -535,20 +544,20 @@ function viewFinance(){
       <td>${x.r.num}x ${money(x.r.valorParcela)}</td>
       <td>${x.r.pagas}/${x.r.num}</td>
       <td><b>${money(x.r.emAberto)}</b></td>
-      <td>${x.r.proxima?fmtDate(x.r.proxima.venc):'—'}</td>
-      <td>${fmtDate(x.r.quita)}</td></tr>`).join('');
+      <td>${x.r.proxima?mesLabel(x.r.proxima.mes):'—'}</td>
+      <td>${mesLabel(x.r.quita)}</td></tr>`).join('');
     parcSection=`<div class="card" style="margin-top:16px">
       <h3>💳 Parcelas a pagar</h3>
       <div class="kpi" style="margin:8px 0 14px">
         <div class="card"><div class="muted">Total em aberto</div><div class="big" style="font-size:22px">${money(totalAberto)}</div></div>
-        <div class="card"><div class="muted">Próxima parcela</div><div class="big" style="font-size:22px">${prox?money(prox.valor):'—'}</div><div class="muted">${prox?fmtDate(prox.venc):''}</div></div>
-        <div class="card"><div class="muted">Quitação final (até)</div><div class="big" style="font-size:22px">${fmtDate(quitaFinal)}</div></div>
+        <div class="card"><div class="muted">Próxima parcela</div><div class="big" style="font-size:22px">${prox?money(prox.valor):'—'}</div><div class="muted">${prox?mesLabel(prox.mes):''}</div></div>
+        <div class="card"><div class="muted">Quitação final (até)</div><div class="big" style="font-size:22px">${mesLabel(quitaFinal)}</div></div>
       </div>
       <div class="grid" style="grid-template-columns:1fr 1fr;gap:16px">
         <div><div class="muted" style="font-size:12px;margin-bottom:6px">A pagar por mês</div>${chartFut}</div>
         <div style="overflow:auto"><table><thead><tr><th>Placa</th><th>Compra</th><th>Total</th><th>Parcela</th><th>Pagas</th><th>Em aberto</th><th>Próxima</th><th>Quita em</th></tr></thead><tbody>${tbl}</tbody></table></div>
       </div>
-      <div class="muted" style="font-size:12px;margin-top:8px">Parcelas com vencimento até hoje são consideradas pagas. Baseado na data da 1ª parcela + 1 por mês.</div>
+      <div class="muted" style="font-size:12px;margin-top:8px">Vencimento por fatura (só o mês). 1º vencimento: compra até o dia 10 → mês da compra; após o dia 10 → mês seguinte. Meses anteriores ao atual contam como pagos.</div>
     </div>`;
   }
   return `<div class="toolbar">${selV}${selA}</div>${kpi}
@@ -596,7 +605,7 @@ function viewManut(){
   if(filtC)list=list.filter(m=>m.categoria===filtC);
   const rows=list.map(m=>{
     let parcHtml='';
-    if(m.parcelado){const r=resumoParcelas(m);parcHtml=`<div><span class="cat" style="background:#facc15;color:#0b1220;font-weight:700">${r.num}x ${money(r.valorParcela)}</span> <span class="muted">${r.pagas}/${r.num} pagas · quita ${fmtDate(r.quita)}</span></div>`;}
+    if(m.parcelado){const r=resumoParcelas(m);parcHtml=`<div><span class="cat" style="background:#facc15;color:#0b1220;font-weight:700">${r.num}x ${money(r.valorParcela)}</span> <span class="muted">${r.pagas}/${r.num} pagas · quita ${mesLabel(r.quita)}</span></div>`;}
     return `<tr>
     <td>${fmtDate(m.data)}</td><td>${vNome(m.veiculo)}</td>
     <td><span class="cat" style="background:${CAT_COLOR[m.categoria]||'#334155'};color:#0b1220;font-weight:700">${m.categoria||'Outros'}</span></td>
@@ -692,12 +701,12 @@ function editManut(id){
   openModal(`<h2>${id?'Editar':'Nova'} manutenção</h2>
     <div class="row2"><div class="field"><label>Veículo</label><select id="f_v">${DB.veiculos.map(v=>`<option value="${v.id}" ${m.veiculo===v.id?'selected':''}>${v.marca} ${v.modelo} (${v.placa})</option>`).join('')}</select></div>
     <div class="field"><label>Categoria</label><select id="f_cat">${catOptions(m.categoria)}</select></div></div>
-    <div class="row2"><div class="field"><label>Data</label><input id="f_data" type="date" value="${m.data||today()}"></div><div class="field"><label>Hodômetro (km)</label><input id="f_km" type="number" value="${m.km!=null?m.km:''}"></div></div>
+    <div class="row2"><div class="field"><label>Data da compra</label><input id="f_data" type="date" value="${m.data||today()}" onchange="calcParcela()"></div><div class="field"><label>Hodômetro (km)</label><input id="f_km" type="number" value="${m.km!=null?m.km:''}"></div></div>
     <div class="field"><label>Serviço / descrição</label><input id="f_tipo" value="${m.tipo||''}" placeholder="Ex: Troca de óleo, pastilhas de freio..."></div>
     <div class="row2"><div class="field"><label>Custo total (R$)</label><input id="f_custo" type="number" step="0.01" value="${m.custo!=null?m.custo:''}" oninput="calcParcela()"></div><div class="field"><label>Oficina / loja</label><input id="f_oficina" value="${m.oficina||''}" placeholder="Ex: Mercado Livre"></div></div>
     <div class="row2"><div class="field"><label>Pagamento</label><select id="f_pag" onchange="togParc()"><option value="vista" ${!m.parcelado?'selected':''}>À vista</option><option value="parc" ${m.parcelado?'selected':''}>Parcelado</option></select></div>
       <div class="field"><label>Nº de parcelas</label><input id="f_np" type="number" min="1" value="${m.numParcelas||1}" oninput="calcParcela()"></div></div>
-    <div class="field" id="wrapDP"><label>Data da 1ª parcela</label><input id="f_dp" type="date" value="${m.dataPrimeiraParcela||m.data||today()}"><div class="muted" id="parcHint" style="margin-top:6px;font-size:12px"></div></div>
+    <div class="field" id="wrapDP" style="display:none"><div class="muted" id="parcHint" style="font-size:12px"></div></div>
     <div class="field"><label>Observações</label><input id="f_obs" value="${m.obs||''}"></div>
     <div class="modal-actions"><button class="btn gray" onclick="closeModal()">Cancelar</button><button class="btn" onclick="saveManut('${id||''}')">Salvar</button></div>`);
   togParc();
@@ -713,14 +722,16 @@ function calcParcela(){
   const el=document.getElementById('parcHint');if(!el)return;
   const parc=document.getElementById('f_pag').value==='parc';
   const custo=gn('f_custo'),np=Math.max(1,gn('f_np'));
-  if(parc&&custo>0){const base=document.getElementById('f_dp').value||today();const quita=addMeses(base,np-1);
-    el.innerHTML=`${np}x de <b>${money(custo/np)}</b> · última parcela em <b>${fmtDate(quita)}</b>`;}
-  else el.textContent='';
+  if(parc&&custo>0){
+    const dataC=document.getElementById('f_data').value||today();
+    const base=mesFaturaFromDate(dataC);const quita=addMesYM(base,np-1);
+    el.innerHTML=`${np}x de <b>${money(custo/np)}</b> · 1ª parcela na fatura de <b>${mesLabel(base)}</b> · última em <b>${mesLabel(quita)}</b>`;
+  } else el.textContent='';
 }
 function saveManut(id){
   const parc=g('f_pag')==='parc';
   const o={veiculo:g('f_v'),data:g('f_data'),km:gn('f_km'),categoria:g('f_cat'),tipo:g('f_tipo'),custo:gn('f_custo'),oficina:g('f_oficina'),obs:g('f_obs'),
-    parcelado:parc,numParcelas:parc?Math.max(1,gn('f_np')):1,dataPrimeiraParcela:parc?(g('f_dp')||g('f_data')):''};
+    parcelado:parc,numParcelas:parc?Math.max(1,gn('f_np')):1};
   if(!o.veiculo||!o.tipo){alert('Selecione veículo e informe o serviço.');return;}
   if(id){Object.assign(DB.manutencoes.find(x=>x.id===id),o);}else{o.id=uid();DB.manutencoes.push(o);}
   const v=vById(o.veiculo);if(v&&o.km>v.km)v.km=o.km;
