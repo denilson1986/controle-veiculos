@@ -565,13 +565,13 @@ function viewFinance(){
   } else {
     const totalAberto=parcelados.reduce((s,x)=>s+x.r.emAberto,0);
     const quitaFinal=parcelados.reduce((mx,x)=>x.r.quita>mx?x.r.quita:mx,'0000-00');
-    // próxima parcela geral (menor mês em aberto)
-    let prox=null;
-    parcelados.forEach(x=>{if(x.r.proxima&&(!prox||x.r.proxima.mes<prox.mes))prox={mes:x.r.proxima.mes,valor:x.r.proxima.valor};});
     // fluxo por mês (parcelas em aberto)
     const fut={};
     parcelados.forEach(x=>x.r.arr.filter(p=>p.mes>=cur).forEach(p=>{fut[p.mes]=(fut[p.mes]||0)+p.valor;}));
-    const futRows=Object.keys(fut).sort().map(k=>({label:mesLabel(k),segs:[{val:fut[k],color:'#f472b6'}]}));
+    const futKeys=Object.keys(fut).sort();
+    // próximo vencimento = soma de TODAS as parcelas do primeiro mês em aberto
+    const prox=futKeys.length?{mes:futKeys[0],valor:fut[futKeys[0]]}:null;
+    const futRows=futKeys.map(k=>({label:mesLabel(k),segs:[{val:fut[k],color:'#f472b6'}]}));
     const chartFut=futRows.length?barChart(futRows,money):'<div class="muted">—</div>';
     const tbl=parcelados.sort((a,b)=>a.r.quita.localeCompare(b.r.quita)).map(x=>`<tr>
       <td>${vById(x.m.veiculo)?vById(x.m.veiculo).placa:'—'}</td>
